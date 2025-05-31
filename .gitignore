@@ -1,1 +1,15 @@
 .vercel
+
+.env
+
+test.ipynb
+
+test_results_*.json
+
+test_results_*.csv
+
+test_results_*.txt
+
+test_results_*.html
+
+test_results_*.jsonl
