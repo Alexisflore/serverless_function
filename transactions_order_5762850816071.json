@@ -1,0 +1,372 @@
+[
+    {
+        "id": 7300162158663,
+        "order_id": 5762850816071,
+        "kind": "sale",
+        "gateway": "shopify_payments",
+        "status": "success",
+        "message": "Transaction approved",
+        "created_at": "2024-12-16T18:53:59-05:00",
+        "test": false,
+        "authorization": "pi_3QWo6tL4B9aNqzKe1leVURRa",
+        "location_id": 63543377991,
+        "user_id": 75728945223,
+        "parent_id": null,
+        "processed_at": "2024-12-16T18:53:59-05:00",
+        "device_id": 4902453319,
+        "error_code": null,
+        "source_name": "checkout_one",
+        "payment_details": {
+            "credit_card_bin": "371294",
+            "avs_result_code": null,
+            "cvv_result_code": "M",
+            "credit_card_number": "•••• •••• •••• 5009",
+            "credit_card_company": "American Express",
+            "buyer_action_info": null,
+            "credit_card_name": "",
+            "credit_card_wallet": null,
+            "credit_card_expiration_month": 7,
+            "credit_card_expiration_year": 2025,
+            "payment_method_name": "american_express"
+        },
+        "receipt": {
+            "id": "pi_3QWo6tL4B9aNqzKe1leVURRa",
+            "object": "payment_intent",
+            "amount": 64409,
+            "amount_capturable": 0,
+            "amount_received": 64409,
+            "canceled_at": null,
+            "cancellation_reason": null,
+            "capture_method": "automatic",
+            "charges": {
+                "object": "list",
+                "data": [
+                    {
+                        "id": "ch_3QWo6tL4B9aNqzKe1vxu08Dy",
+                        "object": "charge",
+                        "amount": 64409,
+                        "application_fee": "fee_1QWo6uL4B9aNqzKe7sYLEBUK",
+                        "balance_transaction": {
+                            "id": "txn_3QWo6tL4B9aNqzKe1zPEfLnl",
+                            "object": "balance_transaction",
+                            "exchange_rate": null
+                        },
+                        "captured": true,
+                        "created": 1734393239,
+                        "currency": "usd",
+                        "failure_code": null,
+                        "failure_message": null,
+                        "fraud_details": {},
+                        "livemode": true,
+                        "metadata": {
+                            "email": "mrs@mayorbob.com",
+                            "manual_entry": "true",
+                            "order_id": "rEzbfYgCbcwaA7sL3qqopeNZg",
+                            "order_transaction_id": "7300162158663",
+                            "payments_charge_id": "3116882231367",
+                            "shop_id": "2437339",
+                            "shop_name": "Adam Lippes",
+                            "shopify_payments_next": "true",
+                            "transaction_fee_tax_amount": "0",
+                            "transaction_fee_total_amount": "2200"
+                        },
+                        "outcome": {
+                            "network_advice_code": null,
+                            "network_decline_code": null,
+                            "network_status": "approved_by_network",
+                            "reason": null,
+                            "risk_level": "normal",
+                            "seller_message": "Payment complete.",
+                            "type": "authorized"
+                        },
+                        "paid": true,
+                        "payment_intent": "pi_3QWo6tL4B9aNqzKe1leVURRa",
+                        "payment_method": "pm_1QWo6tL4B9aNqzKeS6Fx4rfx",
+                        "payment_method_details": {
+                            "card": {
+                                "amount_authorized": 64409,
+                                "authorization_code": "224949",
+                                "brand": "amex",
+                                "checks": {
+                                    "address_line1_check": null,
+                                    "address_postal_code_check": null,
+                                    "cvc_check": "pass"
+                                },
+                                "country": "US",
+                                "description": "Consumer",
+                                "ds_transaction_id": null,
+                                "exp_month": 7,
+                                "exp_year": 2025,
+                                "extended_authorization": {
+                                    "status": "disabled"
+                                },
+                                "fingerprint": "JJEtCNHpOMvlNz0A",
+                                "funding": "credit",
+                                "iin": "371294",
+                                "incremental_authorization": {
+                                    "status": "unavailable"
+                                },
+                                "installments": null,
+                                "issuer": "American Express",
+                                "last4": "5009",
+                                "mandate": null,
+                                "moto": true,
+                                "multicapture": {
+                                    "status": "unavailable"
+                                },
+                                "network": "amex",
+                                "network_token": {
+                                    "used": false
+                                },
+                                "network_transaction_id": "010085958793324",
+                                "overcapture": {
+                                    "maximum_amount_capturable": 74070,
+                                    "status": "available"
+                                },
+                                "overcapture_supported": true,
+                                "payment_account_reference": "A00076WK8REK26VU4P6KRVMVEM3GT",
+                                "three_d_secure": null,
+                                "wallet": null
+                            },
+                            "type": "card"
+                        },
+                        "refunded": false,
+                        "source": null,
+                        "status": "succeeded",
+                        "mit_params": {
+                            "network_transaction_id": "010085958793324"
+                        }
+                    }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges?payment_intent=pi_3QWo6tL4B9aNqzKe1leVURRa"
+            },
+            "confirmation_method": "manual",
+            "created": 1734393239,
+            "currency": "usd",
+            "last_payment_error": null,
+            "livemode": true,
+            "metadata": {
+                "email": "mrs@mayorbob.com",
+                "manual_entry": "true",
+                "order_id": "rEzbfYgCbcwaA7sL3qqopeNZg",
+                "order_transaction_id": "7300162158663",
+                "payments_charge_id": "3116882231367",
+                "shop_id": "2437339",
+                "shop_name": "Adam Lippes",
+                "shopify_payments_next": "true",
+                "transaction_fee_tax_amount": "0",
+                "transaction_fee_total_amount": "2200"
+            },
+            "next_action": null,
+            "payment_method": "pm_1QWo6tL4B9aNqzKeS6Fx4rfx",
+            "payment_method_types": [
+                "card"
+            ],
+            "source": null,
+            "status": "succeeded"
+        },
+        "amount": "644.09",
+        "currency": "USD",
+        "payment_id": "rEzbfYgCbcwaA7sL3qqopeNZg",
+        "total_unsettled_set": {
+            "presentment_money": {
+                "amount": "0.0",
+                "currency": "USD"
+            },
+            "shop_money": {
+                "amount": "0.0",
+                "currency": "USD"
+            }
+        },
+        "manual_payment_gateway": false,
+        "amount_rounding": null,
+        "admin_graphql_api_id": "gid://shopify/OrderTransaction/7300162158663"
+    },
+    {
+        "id": 7343874474055,
+        "order_id": 5762850816071,
+        "kind": "sale",
+        "gateway": "shopify_payments",
+        "status": "success",
+        "message": "Transaction approved",
+        "created_at": "2025-01-07T18:08:43-05:00",
+        "test": false,
+        "authorization": "pi_3Qelt9L4B9aNqzKe1WMV4ieT",
+        "location_id": 63543377991,
+        "user_id": 75728945223,
+        "parent_id": null,
+        "processed_at": "2025-01-07T18:08:43-05:00",
+        "device_id": 4902453319,
+        "error_code": null,
+        "source_name": "checkout_one",
+        "payment_details": {
+            "credit_card_bin": "371725",
+            "avs_result_code": null,
+            "cvv_result_code": "M",
+            "credit_card_number": "•••• •••• •••• 8005",
+            "credit_card_company": "American Express",
+            "buyer_action_info": null,
+            "credit_card_name": "",
+            "credit_card_wallet": null,
+            "credit_card_expiration_month": 6,
+            "credit_card_expiration_year": 2028,
+            "payment_method_name": "american_express"
+        },
+        "receipt": {
+            "id": "pi_3Qelt9L4B9aNqzKe1WMV4ieT",
+            "object": "payment_intent",
+            "amount": 124271,
+            "amount_capturable": 0,
+            "amount_received": 124271,
+            "canceled_at": null,
+            "cancellation_reason": null,
+            "capture_method": "automatic",
+            "charges": {
+                "object": "list",
+                "data": [
+                    {
+                        "id": "ch_3Qelt9L4B9aNqzKe1mxmsbQc",
+                        "object": "charge",
+                        "amount": 124271,
+                        "application_fee": "fee_1QeltAL4B9aNqzKeM6IL6LIi",
+                        "balance_transaction": {
+                            "id": "txn_3Qelt9L4B9aNqzKe1jP3C0wM",
+                            "object": "balance_transaction",
+                            "exchange_rate": null
+                        },
+                        "captured": true,
+                        "created": 1736291324,
+                        "currency": "usd",
+                        "failure_code": null,
+                        "failure_message": null,
+                        "fraud_details": {},
+                        "livemode": true,
+                        "metadata": {
+                            "manual_entry": "true",
+                            "order_id": "5762850816071",
+                            "order_transaction_id": "7343874474055",
+                            "payments_charge_id": "3144179777607",
+                            "shop_id": "2437339",
+                            "shop_name": "Adam Lippes",
+                            "shopify_payments_next": "true",
+                            "transaction_fee_tax_amount": "0",
+                            "transaction_fee_total_amount": "4235"
+                        },
+                        "outcome": {
+                            "advice_code": null,
+                            "network_advice_code": null,
+                            "network_decline_code": null,
+                            "network_status": "approved_by_network",
+                            "reason": null,
+                            "risk_level": "normal",
+                            "seller_message": "Payment complete.",
+                            "type": "authorized"
+                        },
+                        "paid": true,
+                        "payment_intent": "pi_3Qelt9L4B9aNqzKe1WMV4ieT",
+                        "payment_method": "pm_1Qelt9L4B9aNqzKe4m9YOic3",
+                        "payment_method_details": {
+                            "card": {
+                                "amount_authorized": 124271,
+                                "authorization_code": "220064",
+                                "brand": "amex",
+                                "checks": {
+                                    "address_line1_check": null,
+                                    "address_postal_code_check": null,
+                                    "cvc_check": "pass"
+                                },
+                                "country": "US",
+                                "description": "Consumer",
+                                "ds_transaction_id": null,
+                                "exp_month": 6,
+                                "exp_year": 2028,
+                                "extended_authorization": {
+                                    "status": "disabled"
+                                },
+                                "fingerprint": "yPHwjxn2c6naGIWa",
+                                "funding": "credit",
+                                "iin": "371725",
+                                "incremental_authorization": {
+                                    "status": "unavailable"
+                                },
+                                "installments": null,
+                                "issuer": "American Express",
+                                "last4": "8005",
+                                "mandate": null,
+                                "moto": true,
+                                "multicapture": {
+                                    "status": "unavailable"
+                                },
+                                "network": "amex",
+                                "network_token": {
+                                    "used": false
+                                },
+                                "network_transaction_id": "010664651414303",
+                                "overcapture": {
+                                    "maximum_amount_capturable": 142911,
+                                    "status": "available"
+                                },
+                                "overcapture_supported": true,
+                                "payment_account_reference": "A000YQBJT432SKBIVZ880PDPV964V",
+                                "regulated_status": "unregulated",
+                                "three_d_secure": null,
+                                "wallet": null
+                            },
+                            "type": "card"
+                        },
+                        "refunded": false,
+                        "source": null,
+                        "status": "succeeded",
+                        "mit_params": {
+                            "network_transaction_id": "010664651414303"
+                        }
+                    }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges?payment_intent=pi_3Qelt9L4B9aNqzKe1WMV4ieT"
+            },
+            "confirmation_method": "manual",
+            "created": 1736291323,
+            "currency": "usd",
+            "last_payment_error": null,
+            "livemode": true,
+            "metadata": {
+                "manual_entry": "true",
+                "order_id": "5762850816071",
+                "order_transaction_id": "7343874474055",
+                "payments_charge_id": "3144179777607",
+                "shop_id": "2437339",
+                "shop_name": "Adam Lippes",
+                "shopify_payments_next": "true",
+                "transaction_fee_tax_amount": "0",
+                "transaction_fee_total_amount": "4235"
+            },
+            "next_action": null,
+            "payment_method": "pm_1Qelt9L4B9aNqzKe4m9YOic3",
+            "payment_method_types": [
+                "card"
+            ],
+            "source": null,
+            "status": "succeeded"
+        },
+        "amount": "1242.71",
+        "currency": "USD",
+        "payment_id": "r6Luqqp1Q78zBggkJX3fqyY7h",
+        "total_unsettled_set": {
+            "presentment_money": {
+                "amount": "0.0",
+                "currency": "USD"
+            },
+            "shop_money": {
+                "amount": "0.0",
+                "currency": "USD"
+            }
+        },
+        "manual_payment_gateway": false,
+        "amount_rounding": null,
+        "admin_graphql_api_id": "gid://shopify/OrderTransaction/7343874474055"
+    }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "id": 10001,
+    "order_number": "AL-2023-10001",
+    "customer_name": "Jean Dupont",
+    "order_date": "2023-03-02",
+    "total_amount": 1250.75,
+    "status": "confirmed",
+    "payment_method": "credit_card",
+    "shipping_address": "123 Rue Principale, Paris, 75001",
+    "items_count": 3,
+    "notes": "Livraison express demandée",
+    "email": "jean.dupont@example.com",
+    "phone": "+33123456789"
+  },
+  {
+    "id": 10002,
+    "order_number": "AL-2023-10002",
+    "customer_name": "Marie Martin",
+    "order_date": "2023-03-02",
+    "total_amount": 850.25,
+    "status": "processing",
+    "payment_method": "bank_transfer",
+    "shipping_address": "456 Avenue des Champs, Lyon, 69001",
+    "items_count": 2,
+    "notes": "Cadeau - ne pas mentionner le prix",
+    "email": "marie.martin@example.com",
+    "phone": "+33987654321"
+  },
+  {
+    "id": 10003,
+    "order_number": "AL-2023-10003",
+    "customer_name": "Pierre Durand",
+    "order_date": "2023-03-01",
+    "total_amount": 2100.00,
+    "status": "shipped",
+    "payment_method": "paypal",
+    "shipping_address": "789 Boulevard Saint-Michel, Marseille, 13001",
+    "items_count": 5,
+    "notes": "",
+    "email": "pierre.durand@example.com",
+    "phone": "+33654321987"
+  }
+] 

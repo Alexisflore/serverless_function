@@ -1,0 +1,2498 @@
+{
+  "total_days": 365,
+  "days_processed": 365,
+  "days_with_orders": 119,
+  "days_with_errors": 5,
+  "total_orders_processed": 641,
+  "total_orders_inserted": 641,
+  "total_orders_updated": 0,
+  "total_orders_skipped": 0,
+  "total_transactions_processed": 6034,
+  "details_by_day": [
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:11:29.608429",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-01T00:00:00Z to 2025-01-02T00:00:00Z",
+      "transactions_processed": "42 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:11:38.211439",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-02T00:00:00Z to 2025-01-03T00:00:00Z",
+      "transactions_processed": "26 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:11:44.445583",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-03T00:00:00Z to 2025-01-04T00:00:00Z",
+      "transactions_processed": "14 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:11:57.503249",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-04T00:00:00Z to 2025-01-05T00:00:00Z",
+      "transactions_processed": "32 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:12:08.831370",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-05T00:00:00Z to 2025-01-06T00:00:00Z",
+      "transactions_processed": "20 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "19 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:13:05.460742",
+      "details": "Commandes ins\u00e9r\u00e9es: 19, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-06T00:00:00Z to 2025-01-07T00:00:00Z",
+      "transactions_processed": "166 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:13:16.769595",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-07T00:00:00Z to 2025-01-08T00:00:00Z",
+      "transactions_processed": "21 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:13:35.054208",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-08T00:00:00Z to 2025-01-09T00:00:00Z",
+      "transactions_processed": "50 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:14:04.947671",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-09T00:00:00Z to 2025-01-10T00:00:00Z",
+      "transactions_processed": "85 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:14:20.214636",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-10T00:00:00Z to 2025-01-11T00:00:00Z",
+      "transactions_processed": "28 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:14:47.753408",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-11T00:00:00Z to 2025-01-12T00:00:00Z",
+      "transactions_processed": "83 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:15:08.220633",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-12T00:00:00Z to 2025-01-13T00:00:00Z",
+      "transactions_processed": "61 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "14 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:15:53.189309",
+      "details": "Commandes ins\u00e9r\u00e9es: 14, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-13T00:00:00Z to 2025-01-14T00:00:00Z",
+      "transactions_processed": "138 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:16:12.160965",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-14T00:00:00Z to 2025-01-15T00:00:00Z",
+      "transactions_processed": "45 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:16:26.855997",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-15T00:00:00Z to 2025-01-16T00:00:00Z",
+      "transactions_processed": "40 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:16:35.345010",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-16T00:00:00Z to 2025-01-17T00:00:00Z",
+      "transactions_processed": "15 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:16:35.345488",
+      "analyzed_period": "From 2025-01-17T00:00:00Z to 2025-01-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:16:44.599545",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-18T00:00:00Z to 2025-01-19T00:00:00Z",
+      "transactions_processed": "15 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:16:51.624183",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-19T00:00:00Z to 2025-01-20T00:00:00Z",
+      "transactions_processed": "9 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "22 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:17:47.065569",
+      "details": "Commandes ins\u00e9r\u00e9es: 22, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-20T00:00:00Z to 2025-01-21T00:00:00Z",
+      "transactions_processed": "141 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:18:09.179013",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-21T00:00:00Z to 2025-01-22T00:00:00Z",
+      "transactions_processed": "52 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:18:25.115628",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-22T00:00:00Z to 2025-01-23T00:00:00Z",
+      "transactions_processed": "36 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:18:44.744681",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-23T00:00:00Z to 2025-01-24T00:00:00Z",
+      "transactions_processed": "47 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "15 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:19:23.715807",
+      "details": "Commandes ins\u00e9r\u00e9es: 15, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-24T00:00:00Z to 2025-01-25T00:00:00Z",
+      "transactions_processed": "110 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:19:40.319087",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-25T00:00:00Z to 2025-01-26T00:00:00Z",
+      "transactions_processed": "39 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:19:47.306513",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-26T00:00:00Z to 2025-01-27T00:00:00Z",
+      "transactions_processed": "10 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:20:10.731827",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-27T00:00:00Z to 2025-01-28T00:00:00Z",
+      "transactions_processed": "59 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "9 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:21:04.452176",
+      "details": "Commandes ins\u00e9r\u00e9es: 9, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-28T00:00:00Z to 2025-01-29T00:00:00Z",
+      "transactions_processed": "204 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:21:28.343712",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-29T00:00:00Z to 2025-01-30T00:00:00Z",
+      "transactions_processed": "57 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:21:54.180483",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-30T00:00:00Z to 2025-01-31T00:00:00Z",
+      "transactions_processed": "99 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:22:08.555085",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-01-31T00:00:00Z to 2025-02-01T00:00:00Z",
+      "transactions_processed": "37 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:22:20.202130",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-01T00:00:00Z to 2025-02-02T00:00:00Z",
+      "transactions_processed": "26 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:22:33.333804",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-02T00:00:00Z to 2025-02-03T00:00:00Z",
+      "transactions_processed": "28 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:22:57.000075",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-03T00:00:00Z to 2025-02-04T00:00:00Z",
+      "transactions_processed": "64 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:23:10.939864",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-04T00:00:00Z to 2025-02-05T00:00:00Z",
+      "transactions_processed": "33 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:23:21.877438",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-05T00:00:00Z to 2025-02-06T00:00:00Z",
+      "transactions_processed": "19 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:23:43.132945",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-06T00:00:00Z to 2025-02-07T00:00:00Z",
+      "transactions_processed": "54 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:23:50.500234",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-07T00:00:00Z to 2025-02-08T00:00:00Z",
+      "transactions_processed": "9 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:24:09.104709",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-08T00:00:00Z to 2025-02-09T00:00:00Z",
+      "transactions_processed": "58 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:24:23.718337",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-09T00:00:00Z to 2025-02-10T00:00:00Z",
+      "transactions_processed": "42 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:24:47.818902",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-10T00:00:00Z to 2025-02-11T00:00:00Z",
+      "transactions_processed": "67 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:25:02.232803",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-11T00:00:00Z to 2025-02-12T00:00:00Z",
+      "transactions_processed": "39 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:25:19.179496",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-12T00:00:00Z to 2025-02-13T00:00:00Z",
+      "transactions_processed": "51 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:25:36.073060",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-13T00:00:00Z to 2025-02-14T00:00:00Z",
+      "transactions_processed": "40 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:25:46.594832",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-14T00:00:00Z to 2025-02-15T00:00:00Z",
+      "transactions_processed": "18 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "1 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:25:51.307417",
+      "details": "Commandes ins\u00e9r\u00e9es: 1, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-15T00:00:00Z to 2025-02-16T00:00:00Z",
+      "transactions_processed": "4 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:26:00.142437",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-16T00:00:00Z to 2025-02-17T00:00:00Z",
+      "transactions_processed": "13 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:26:12.972017",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-17T00:00:00Z to 2025-02-18T00:00:00Z",
+      "transactions_processed": "19 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": false,
+      "message": "Une erreur s'est produite",
+      "timestamp": "2025-05-01T11:26:12.972672",
+      "error": "'NoneType' object has no attribute 'get'",
+      "error_details": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/process_daily_data.py\", line 51, in process_daily_data",
+        "    transactions = get_transactions_between_dates(start_datetime, end_datetime)",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 332, in get_transactions_between_dates",
+        "    txs.extend(get_transactions_by_order(order_id))",
+        "               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 152, in get_transactions_by_order",
+        "    client_id = order.get(\"customer\", {}).get(\"id\", -1)",
+        "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "AttributeError: 'NoneType' object has no attribute 'get'",
+        ""
+      ]
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:26:39.542521",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-19T00:00:00Z to 2025-02-20T00:00:00Z",
+      "transactions_processed": "42 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:26:59.834276",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-20T00:00:00Z to 2025-02-21T00:00:00Z",
+      "transactions_processed": "46 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "17 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:27:29.119018",
+      "details": "Commandes ins\u00e9r\u00e9es: 17, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-21T00:00:00Z to 2025-02-22T00:00:00Z",
+      "transactions_processed": "45 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:27:40.758253",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-22T00:00:00Z to 2025-02-23T00:00:00Z",
+      "transactions_processed": "25 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "1 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:27:45.867096",
+      "details": "Commandes ins\u00e9r\u00e9es: 1, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-23T00:00:00Z to 2025-02-24T00:00:00Z",
+      "transactions_processed": "5 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:28:09.363328",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-24T00:00:00Z to 2025-02-25T00:00:00Z",
+      "transactions_processed": "59 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:28:21.791585",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-25T00:00:00Z to 2025-02-26T00:00:00Z",
+      "transactions_processed": "26 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:28:40.418372",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-26T00:00:00Z to 2025-02-27T00:00:00Z",
+      "transactions_processed": "48 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:29:01.757122",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-27T00:00:00Z to 2025-02-28T00:00:00Z",
+      "transactions_processed": "57 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "9 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:29:26.259239",
+      "details": "Commandes ins\u00e9r\u00e9es: 9, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-02-28T00:00:00Z to 2025-03-01T00:00:00Z",
+      "transactions_processed": "61 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:29:39.046498",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-01T00:00:00Z to 2025-03-02T00:00:00Z",
+      "transactions_processed": "36 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:29:46.051960",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-02T00:00:00Z to 2025-03-03T00:00:00Z",
+      "transactions_processed": "11 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:29:55.804366",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-03T00:00:00Z to 2025-03-04T00:00:00Z",
+      "transactions_processed": "19 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:30:02.195417",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-04T00:00:00Z to 2025-03-05T00:00:00Z",
+      "transactions_processed": "6 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "1 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:30:08.661653",
+      "details": "Commandes ins\u00e9r\u00e9es: 1, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-05T00:00:00Z to 2025-03-06T00:00:00Z",
+      "transactions_processed": "10 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:30:22.052315",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-06T00:00:00Z to 2025-03-07T00:00:00Z",
+      "transactions_processed": "35 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:30:49.641460",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-07T00:00:00Z to 2025-03-08T00:00:00Z",
+      "transactions_processed": "74 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:31:07.696110",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-08T00:00:00Z to 2025-03-09T00:00:00Z",
+      "transactions_processed": "44 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:31:20.507319",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-09T00:00:00Z to 2025-03-10T00:00:00Z",
+      "transactions_processed": "22 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:31:32.213529",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-10T00:00:00Z to 2025-03-11T00:00:00Z",
+      "transactions_processed": "18 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:31:46.208485",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-11T00:00:00Z to 2025-03-12T00:00:00Z",
+      "transactions_processed": "31 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:32:09.131076",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-12T00:00:00Z to 2025-03-13T00:00:00Z",
+      "transactions_processed": "68 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:32:33.441140",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-13T00:00:00Z to 2025-03-14T00:00:00Z",
+      "transactions_processed": "65 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "9 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:33:18.747483",
+      "details": "Commandes ins\u00e9r\u00e9es: 9, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-14T00:00:00Z to 2025-03-15T00:00:00Z",
+      "transactions_processed": "160 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:33:37.337445",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-15T00:00:00Z to 2025-03-16T00:00:00Z",
+      "transactions_processed": "42 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:33:53.761793",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-16T00:00:00Z to 2025-03-17T00:00:00Z",
+      "transactions_processed": "32 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:34:21.579662",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-17T00:00:00Z to 2025-03-18T00:00:00Z",
+      "transactions_processed": "93 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:34:45.247419",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-18T00:00:00Z to 2025-03-19T00:00:00Z",
+      "transactions_processed": "68 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:35:10.676351",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-19T00:00:00Z to 2025-03-20T00:00:00Z",
+      "transactions_processed": "73 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:35:38.376883",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-20T00:00:00Z to 2025-03-21T00:00:00Z",
+      "transactions_processed": "84 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:35:59.838922",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-21T00:00:00Z to 2025-03-22T00:00:00Z",
+      "transactions_processed": "66 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:36:40.996382",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-22T00:00:00Z to 2025-03-23T00:00:00Z",
+      "transactions_processed": "131 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:36:59.006877",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-23T00:00:00Z to 2025-03-24T00:00:00Z",
+      "transactions_processed": "47 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "9 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:37:31.498275",
+      "details": "Commandes ins\u00e9r\u00e9es: 9, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-24T00:00:00Z to 2025-03-25T00:00:00Z",
+      "transactions_processed": "87 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:37:54.129649",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-25T00:00:00Z to 2025-03-26T00:00:00Z",
+      "transactions_processed": "67 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:38:17.464431",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-26T00:00:00Z to 2025-03-27T00:00:00Z",
+      "transactions_processed": "63 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:38:43.855506",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-27T00:00:00Z to 2025-03-28T00:00:00Z",
+      "transactions_processed": "77 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:39:03.094995",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-28T00:00:00Z to 2025-03-29T00:00:00Z",
+      "transactions_processed": "47 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:39:17.364249",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-29T00:00:00Z to 2025-03-30T00:00:00Z",
+      "transactions_processed": "35 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:39:25.611794",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-30T00:00:00Z to 2025-03-31T00:00:00Z",
+      "transactions_processed": "15 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:39:50.495997",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-03-31T00:00:00Z to 2025-04-01T00:00:00Z",
+      "transactions_processed": "65 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:40:18.323104",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-01T00:00:00Z to 2025-04-02T00:00:00Z",
+      "transactions_processed": "88 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "12 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:40:53.439495",
+      "details": "Commandes ins\u00e9r\u00e9es: 12, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-02T00:00:00Z to 2025-04-03T00:00:00Z",
+      "transactions_processed": "98 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "15 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:41:31.166661",
+      "details": "Commandes ins\u00e9r\u00e9es: 15, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-03T00:00:00Z to 2025-04-04T00:00:00Z",
+      "transactions_processed": "95 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:42:02.838426",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-04T00:00:00Z to 2025-04-05T00:00:00Z",
+      "transactions_processed": "111 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:42:12.328346",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-05T00:00:00Z to 2025-04-06T00:00:00Z",
+      "transactions_processed": "12 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:42:25.995378",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-06T00:00:00Z to 2025-04-07T00:00:00Z",
+      "transactions_processed": "39 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:42:52.682854",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-07T00:00:00Z to 2025-04-08T00:00:00Z",
+      "transactions_processed": "70 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:43:15.588341",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-08T00:00:00Z to 2025-04-09T00:00:00Z",
+      "transactions_processed": "83 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": false,
+      "message": "Une erreur s'est produite",
+      "timestamp": "2025-05-01T11:43:15.589560",
+      "error": "'NoneType' object has no attribute 'get'",
+      "error_details": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/process_daily_data.py\", line 51, in process_daily_data",
+        "    transactions = get_transactions_between_dates(start_datetime, end_datetime)",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 332, in get_transactions_between_dates",
+        "    txs.extend(get_transactions_by_order(order_id))",
+        "               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 152, in get_transactions_by_order",
+        "    client_id = order.get(\"customer\", {}).get(\"id\", -1)",
+        "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "AttributeError: 'NoneType' object has no attribute 'get'",
+        ""
+      ]
+    },
+    {
+      "success": false,
+      "message": "Une erreur s'est produite",
+      "timestamp": "2025-05-01T11:43:25.843762",
+      "error": "'NoneType' object has no attribute 'get'",
+      "error_details": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/process_daily_data.py\", line 51, in process_daily_data",
+        "    transactions = get_transactions_between_dates(start_datetime, end_datetime)",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 332, in get_transactions_between_dates",
+        "    txs.extend(get_transactions_by_order(order_id))",
+        "               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 152, in get_transactions_by_order",
+        "    client_id = order.get(\"customer\", {}).get(\"id\", -1)",
+        "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "AttributeError: 'NoneType' object has no attribute 'get'",
+        ""
+      ]
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:43:53.855934",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-11T00:00:00Z to 2025-04-12T00:00:00Z",
+      "transactions_processed": "38 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "9 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:44:34.981458",
+      "details": "Commandes ins\u00e9r\u00e9es: 9, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-12T00:00:00Z to 2025-04-13T00:00:00Z",
+      "transactions_processed": "141 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:44:41.841197",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-13T00:00:00Z to 2025-04-14T00:00:00Z",
+      "transactions_processed": "5 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": false,
+      "message": "Une erreur s'est produite",
+      "timestamp": "2025-05-01T11:44:41.841650",
+      "error": "'NoneType' object has no attribute 'get'",
+      "error_details": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/process_daily_data.py\", line 51, in process_daily_data",
+        "    transactions = get_transactions_between_dates(start_datetime, end_datetime)",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 332, in get_transactions_between_dates",
+        "    txs.extend(get_transactions_by_order(order_id))",
+        "               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 152, in get_transactions_by_order",
+        "    client_id = order.get(\"customer\", {}).get(\"id\", -1)",
+        "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "AttributeError: 'NoneType' object has no attribute 'get'",
+        ""
+      ]
+    },
+    {
+      "success": true,
+      "message": "8 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:45:37.013051",
+      "details": "Commandes ins\u00e9r\u00e9es: 8, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-15T00:00:00Z to 2025-04-16T00:00:00Z",
+      "transactions_processed": "172 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "3 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:45:46.815121",
+      "details": "Commandes ins\u00e9r\u00e9es: 3, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-16T00:00:00Z to 2025-04-17T00:00:00Z",
+      "transactions_processed": "18 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": false,
+      "message": "Une erreur s'est produite",
+      "timestamp": "2025-05-01T11:45:46.815671",
+      "error": "'NoneType' object has no attribute 'get'",
+      "error_details": [
+        "Traceback (most recent call last):",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/process_daily_data.py\", line 51, in process_daily_data",
+        "    transactions = get_transactions_between_dates(start_datetime, end_datetime)",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 332, in get_transactions_between_dates",
+        "    txs.extend(get_transactions_by_order(order_id))",
+        "               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^",
+        "  File \"/Users/alexisflorentin/Documents/Comptability/Adam Lippes/serverless_function/api/lib/process_transactions.py\", line 152, in get_transactions_by_order",
+        "    client_id = order.get(\"customer\", {}).get(\"id\", -1)",
+        "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "AttributeError: 'NoneType' object has no attribute 'get'",
+        ""
+      ]
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:46:25.440952",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-18T00:00:00Z to 2025-04-19T00:00:00Z",
+      "transactions_processed": "71 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "6 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:46:42.444275",
+      "details": "Commandes ins\u00e9r\u00e9es: 6, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-19T00:00:00Z to 2025-04-20T00:00:00Z",
+      "transactions_processed": "41 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:46:56.405054",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-20T00:00:00Z to 2025-04-21T00:00:00Z",
+      "transactions_processed": "28 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:47:13.881793",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-21T00:00:00Z to 2025-04-22T00:00:00Z",
+      "transactions_processed": "43 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:47:27.054387",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-22T00:00:00Z to 2025-04-23T00:00:00Z",
+      "transactions_processed": "26 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "2 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:47:35.209648",
+      "details": "Commandes ins\u00e9r\u00e9es: 2, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-23T00:00:00Z to 2025-04-24T00:00:00Z",
+      "transactions_processed": "19 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:48:01.001726",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-24T00:00:00Z to 2025-04-25T00:00:00Z",
+      "transactions_processed": "89 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:48:19.642108",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-25T00:00:00Z to 2025-04-26T00:00:00Z",
+      "transactions_processed": "41 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:48:33.157303",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-26T00:00:00Z to 2025-04-27T00:00:00Z",
+      "transactions_processed": "34 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "5 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:48:47.901128",
+      "details": "Commandes ins\u00e9r\u00e9es: 5, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-27T00:00:00Z to 2025-04-28T00:00:00Z",
+      "transactions_processed": "31 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:49:11.858885",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-28T00:00:00Z to 2025-04-29T00:00:00Z",
+      "transactions_processed": "91 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "7 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:49:32.301978",
+      "details": "Commandes ins\u00e9r\u00e9es: 7, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-29T00:00:00Z to 2025-04-30T00:00:00Z",
+      "transactions_processed": "54 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "4 commandes trait\u00e9es avec succ\u00e8s",
+      "timestamp": "2025-05-01T11:49:43.932705",
+      "details": "Commandes ins\u00e9r\u00e9es: 4, mises \u00e0 jour: 0, ignor\u00e9es: 0",
+      "analyzed_period": "From 2025-04-30T00:00:00Z to 2025-05-01T00:00:00Z",
+      "transactions_processed": "26 transactions trait\u00e9es avec succ\u00e8s"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:43.933231",
+      "analyzed_period": "From 2025-05-01T00:00:00Z to 2025-05-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:44.178189",
+      "analyzed_period": "From 2025-05-02T00:00:00Z to 2025-05-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:44.424725",
+      "analyzed_period": "From 2025-05-03T00:00:00Z to 2025-05-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:44.690679",
+      "analyzed_period": "From 2025-05-04T00:00:00Z to 2025-05-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:44.948774",
+      "analyzed_period": "From 2025-05-05T00:00:00Z to 2025-05-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:45.202225",
+      "analyzed_period": "From 2025-05-06T00:00:00Z to 2025-05-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:45.444935",
+      "analyzed_period": "From 2025-05-07T00:00:00Z to 2025-05-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:45.680724",
+      "analyzed_period": "From 2025-05-08T00:00:00Z to 2025-05-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:45.922325",
+      "analyzed_period": "From 2025-05-09T00:00:00Z to 2025-05-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:46.164449",
+      "analyzed_period": "From 2025-05-10T00:00:00Z to 2025-05-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:46.417541",
+      "analyzed_period": "From 2025-05-11T00:00:00Z to 2025-05-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:46.682877",
+      "analyzed_period": "From 2025-05-12T00:00:00Z to 2025-05-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:46.935234",
+      "analyzed_period": "From 2025-05-13T00:00:00Z to 2025-05-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:47.183256",
+      "analyzed_period": "From 2025-05-14T00:00:00Z to 2025-05-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:47.423757",
+      "analyzed_period": "From 2025-05-15T00:00:00Z to 2025-05-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:47.666999",
+      "analyzed_period": "From 2025-05-16T00:00:00Z to 2025-05-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:47.920368",
+      "analyzed_period": "From 2025-05-17T00:00:00Z to 2025-05-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:48.154201",
+      "analyzed_period": "From 2025-05-18T00:00:00Z to 2025-05-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:48.407962",
+      "analyzed_period": "From 2025-05-19T00:00:00Z to 2025-05-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:48.651854",
+      "analyzed_period": "From 2025-05-20T00:00:00Z to 2025-05-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:48.927641",
+      "analyzed_period": "From 2025-05-21T00:00:00Z to 2025-05-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:49.176325",
+      "analyzed_period": "From 2025-05-22T00:00:00Z to 2025-05-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:49.418118",
+      "analyzed_period": "From 2025-05-23T00:00:00Z to 2025-05-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:49.661443",
+      "analyzed_period": "From 2025-05-24T00:00:00Z to 2025-05-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:49.915724",
+      "analyzed_period": "From 2025-05-25T00:00:00Z to 2025-05-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:50.172357",
+      "analyzed_period": "From 2025-05-26T00:00:00Z to 2025-05-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:50.460031",
+      "analyzed_period": "From 2025-05-27T00:00:00Z to 2025-05-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:50.695737",
+      "analyzed_period": "From 2025-05-28T00:00:00Z to 2025-05-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:50.956929",
+      "analyzed_period": "From 2025-05-29T00:00:00Z to 2025-05-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:51.205746",
+      "analyzed_period": "From 2025-05-30T00:00:00Z to 2025-05-31T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:51.449898",
+      "analyzed_period": "From 2025-05-31T00:00:00Z to 2025-06-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:51.704225",
+      "analyzed_period": "From 2025-06-01T00:00:00Z to 2025-06-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:52.064971",
+      "analyzed_period": "From 2025-06-02T00:00:00Z to 2025-06-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:52.316313",
+      "analyzed_period": "From 2025-06-03T00:00:00Z to 2025-06-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:52.558132",
+      "analyzed_period": "From 2025-06-04T00:00:00Z to 2025-06-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:52.793015",
+      "analyzed_period": "From 2025-06-05T00:00:00Z to 2025-06-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:53.032863",
+      "analyzed_period": "From 2025-06-06T00:00:00Z to 2025-06-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:53.287874",
+      "analyzed_period": "From 2025-06-07T00:00:00Z to 2025-06-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:53.531608",
+      "analyzed_period": "From 2025-06-08T00:00:00Z to 2025-06-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:53.786274",
+      "analyzed_period": "From 2025-06-09T00:00:00Z to 2025-06-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:54.044174",
+      "analyzed_period": "From 2025-06-10T00:00:00Z to 2025-06-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:54.281991",
+      "analyzed_period": "From 2025-06-11T00:00:00Z to 2025-06-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:54.532177",
+      "analyzed_period": "From 2025-06-12T00:00:00Z to 2025-06-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:54.764823",
+      "analyzed_period": "From 2025-06-13T00:00:00Z to 2025-06-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:55.000908",
+      "analyzed_period": "From 2025-06-14T00:00:00Z to 2025-06-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:55.269879",
+      "analyzed_period": "From 2025-06-15T00:00:00Z to 2025-06-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:55.520497",
+      "analyzed_period": "From 2025-06-16T00:00:00Z to 2025-06-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:55.806010",
+      "analyzed_period": "From 2025-06-17T00:00:00Z to 2025-06-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:56.050358",
+      "analyzed_period": "From 2025-06-18T00:00:00Z to 2025-06-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:56.322794",
+      "analyzed_period": "From 2025-06-19T00:00:00Z to 2025-06-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:56.562762",
+      "analyzed_period": "From 2025-06-20T00:00:00Z to 2025-06-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:56.799953",
+      "analyzed_period": "From 2025-06-21T00:00:00Z to 2025-06-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:57.044098",
+      "analyzed_period": "From 2025-06-22T00:00:00Z to 2025-06-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:57.285483",
+      "analyzed_period": "From 2025-06-23T00:00:00Z to 2025-06-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:57.535393",
+      "analyzed_period": "From 2025-06-24T00:00:00Z to 2025-06-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:57.784882",
+      "analyzed_period": "From 2025-06-25T00:00:00Z to 2025-06-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:58.141343",
+      "analyzed_period": "From 2025-06-26T00:00:00Z to 2025-06-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:58.386366",
+      "analyzed_period": "From 2025-06-27T00:00:00Z to 2025-06-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:58.653174",
+      "analyzed_period": "From 2025-06-28T00:00:00Z to 2025-06-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:58.912447",
+      "analyzed_period": "From 2025-06-29T00:00:00Z to 2025-06-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:59.149449",
+      "analyzed_period": "From 2025-06-30T00:00:00Z to 2025-07-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:59.397377",
+      "analyzed_period": "From 2025-07-01T00:00:00Z to 2025-07-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:59.636987",
+      "analyzed_period": "From 2025-07-02T00:00:00Z to 2025-07-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:49:59.871241",
+      "analyzed_period": "From 2025-07-03T00:00:00Z to 2025-07-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:00.125306",
+      "analyzed_period": "From 2025-07-04T00:00:00Z to 2025-07-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:00.357997",
+      "analyzed_period": "From 2025-07-05T00:00:00Z to 2025-07-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:00.604754",
+      "analyzed_period": "From 2025-07-06T00:00:00Z to 2025-07-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:00.873815",
+      "analyzed_period": "From 2025-07-07T00:00:00Z to 2025-07-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:01.127840",
+      "analyzed_period": "From 2025-07-08T00:00:00Z to 2025-07-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:01.397742",
+      "analyzed_period": "From 2025-07-09T00:00:00Z to 2025-07-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:01.640483",
+      "analyzed_period": "From 2025-07-10T00:00:00Z to 2025-07-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:01.886625",
+      "analyzed_period": "From 2025-07-11T00:00:00Z to 2025-07-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:02.129297",
+      "analyzed_period": "From 2025-07-12T00:00:00Z to 2025-07-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:02.370666",
+      "analyzed_period": "From 2025-07-13T00:00:00Z to 2025-07-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:02.613350",
+      "analyzed_period": "From 2025-07-14T00:00:00Z to 2025-07-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:02.862119",
+      "analyzed_period": "From 2025-07-15T00:00:00Z to 2025-07-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:03.109138",
+      "analyzed_period": "From 2025-07-16T00:00:00Z to 2025-07-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:03.357654",
+      "analyzed_period": "From 2025-07-17T00:00:00Z to 2025-07-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:03.639093",
+      "analyzed_period": "From 2025-07-18T00:00:00Z to 2025-07-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:03.893757",
+      "analyzed_period": "From 2025-07-19T00:00:00Z to 2025-07-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:04.167504",
+      "analyzed_period": "From 2025-07-20T00:00:00Z to 2025-07-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:04.424434",
+      "analyzed_period": "From 2025-07-21T00:00:00Z to 2025-07-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:04.673785",
+      "analyzed_period": "From 2025-07-22T00:00:00Z to 2025-07-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:04.965590",
+      "analyzed_period": "From 2025-07-23T00:00:00Z to 2025-07-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:05.210420",
+      "analyzed_period": "From 2025-07-24T00:00:00Z to 2025-07-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:05.477694",
+      "analyzed_period": "From 2025-07-25T00:00:00Z to 2025-07-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:05.721339",
+      "analyzed_period": "From 2025-07-26T00:00:00Z to 2025-07-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:05.965255",
+      "analyzed_period": "From 2025-07-27T00:00:00Z to 2025-07-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:06.219884",
+      "analyzed_period": "From 2025-07-28T00:00:00Z to 2025-07-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:06.472711",
+      "analyzed_period": "From 2025-07-29T00:00:00Z to 2025-07-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:06.712413",
+      "analyzed_period": "From 2025-07-30T00:00:00Z to 2025-07-31T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:06.979330",
+      "analyzed_period": "From 2025-07-31T00:00:00Z to 2025-08-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:07.211110",
+      "analyzed_period": "From 2025-08-01T00:00:00Z to 2025-08-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:07.454517",
+      "analyzed_period": "From 2025-08-02T00:00:00Z to 2025-08-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:07.706627",
+      "analyzed_period": "From 2025-08-03T00:00:00Z to 2025-08-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:07.954196",
+      "analyzed_period": "From 2025-08-04T00:00:00Z to 2025-08-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:08.195101",
+      "analyzed_period": "From 2025-08-05T00:00:00Z to 2025-08-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:08.460573",
+      "analyzed_period": "From 2025-08-06T00:00:00Z to 2025-08-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:08.714587",
+      "analyzed_period": "From 2025-08-07T00:00:00Z to 2025-08-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:09.012640",
+      "analyzed_period": "From 2025-08-08T00:00:00Z to 2025-08-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:09.259301",
+      "analyzed_period": "From 2025-08-09T00:00:00Z to 2025-08-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:09.537758",
+      "analyzed_period": "From 2025-08-10T00:00:00Z to 2025-08-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:09.794356",
+      "analyzed_period": "From 2025-08-11T00:00:00Z to 2025-08-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:10.089297",
+      "analyzed_period": "From 2025-08-12T00:00:00Z to 2025-08-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:10.326946",
+      "analyzed_period": "From 2025-08-13T00:00:00Z to 2025-08-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:10.585663",
+      "analyzed_period": "From 2025-08-14T00:00:00Z to 2025-08-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:10.821145",
+      "analyzed_period": "From 2025-08-15T00:00:00Z to 2025-08-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:11.077333",
+      "analyzed_period": "From 2025-08-16T00:00:00Z to 2025-08-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:11.338755",
+      "analyzed_period": "From 2025-08-17T00:00:00Z to 2025-08-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:11.581891",
+      "analyzed_period": "From 2025-08-18T00:00:00Z to 2025-08-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:12.013158",
+      "analyzed_period": "From 2025-08-19T00:00:00Z to 2025-08-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:12.274479",
+      "analyzed_period": "From 2025-08-20T00:00:00Z to 2025-08-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:12.518530",
+      "analyzed_period": "From 2025-08-21T00:00:00Z to 2025-08-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:12.784762",
+      "analyzed_period": "From 2025-08-22T00:00:00Z to 2025-08-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:13.047959",
+      "analyzed_period": "From 2025-08-23T00:00:00Z to 2025-08-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:13.313844",
+      "analyzed_period": "From 2025-08-24T00:00:00Z to 2025-08-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:13.575820",
+      "analyzed_period": "From 2025-08-25T00:00:00Z to 2025-08-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:13.837136",
+      "analyzed_period": "From 2025-08-26T00:00:00Z to 2025-08-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:14.109129",
+      "analyzed_period": "From 2025-08-27T00:00:00Z to 2025-08-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:14.354370",
+      "analyzed_period": "From 2025-08-28T00:00:00Z to 2025-08-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:14.603875",
+      "analyzed_period": "From 2025-08-29T00:00:00Z to 2025-08-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:14.860046",
+      "analyzed_period": "From 2025-08-30T00:00:00Z to 2025-08-31T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:15.102167",
+      "analyzed_period": "From 2025-08-31T00:00:00Z to 2025-09-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:15.354694",
+      "analyzed_period": "From 2025-09-01T00:00:00Z to 2025-09-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:15.606290",
+      "analyzed_period": "From 2025-09-02T00:00:00Z to 2025-09-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:15.835552",
+      "analyzed_period": "From 2025-09-03T00:00:00Z to 2025-09-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:16.098612",
+      "analyzed_period": "From 2025-09-04T00:00:00Z to 2025-09-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:16.338142",
+      "analyzed_period": "From 2025-09-05T00:00:00Z to 2025-09-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:16.586049",
+      "analyzed_period": "From 2025-09-06T00:00:00Z to 2025-09-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:16.831936",
+      "analyzed_period": "From 2025-09-07T00:00:00Z to 2025-09-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:17.095263",
+      "analyzed_period": "From 2025-09-08T00:00:00Z to 2025-09-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:17.351836",
+      "analyzed_period": "From 2025-09-09T00:00:00Z to 2025-09-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:17.633402",
+      "analyzed_period": "From 2025-09-10T00:00:00Z to 2025-09-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:17.868453",
+      "analyzed_period": "From 2025-09-11T00:00:00Z to 2025-09-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:18.175937",
+      "analyzed_period": "From 2025-09-12T00:00:00Z to 2025-09-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:18.423275",
+      "analyzed_period": "From 2025-09-13T00:00:00Z to 2025-09-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:18.667073",
+      "analyzed_period": "From 2025-09-14T00:00:00Z to 2025-09-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:18.940107",
+      "analyzed_period": "From 2025-09-15T00:00:00Z to 2025-09-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:19.195375",
+      "analyzed_period": "From 2025-09-16T00:00:00Z to 2025-09-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:19.445549",
+      "analyzed_period": "From 2025-09-17T00:00:00Z to 2025-09-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:19.696739",
+      "analyzed_period": "From 2025-09-18T00:00:00Z to 2025-09-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:19.949271",
+      "analyzed_period": "From 2025-09-19T00:00:00Z to 2025-09-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:20.191028",
+      "analyzed_period": "From 2025-09-20T00:00:00Z to 2025-09-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:20.432043",
+      "analyzed_period": "From 2025-09-21T00:00:00Z to 2025-09-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:20.675846",
+      "analyzed_period": "From 2025-09-22T00:00:00Z to 2025-09-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:20.925698",
+      "analyzed_period": "From 2025-09-23T00:00:00Z to 2025-09-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:21.165301",
+      "analyzed_period": "From 2025-09-24T00:00:00Z to 2025-09-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:21.430062",
+      "analyzed_period": "From 2025-09-25T00:00:00Z to 2025-09-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:21.691388",
+      "analyzed_period": "From 2025-09-26T00:00:00Z to 2025-09-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:21.951183",
+      "analyzed_period": "From 2025-09-27T00:00:00Z to 2025-09-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:22.204593",
+      "analyzed_period": "From 2025-09-28T00:00:00Z to 2025-09-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:22.437568",
+      "analyzed_period": "From 2025-09-29T00:00:00Z to 2025-09-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:22.695533",
+      "analyzed_period": "From 2025-09-30T00:00:00Z to 2025-10-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:22.945407",
+      "analyzed_period": "From 2025-10-01T00:00:00Z to 2025-10-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:23.185145",
+      "analyzed_period": "From 2025-10-02T00:00:00Z to 2025-10-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:23.440938",
+      "analyzed_period": "From 2025-10-03T00:00:00Z to 2025-10-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:23.717981",
+      "analyzed_period": "From 2025-10-04T00:00:00Z to 2025-10-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:23.975612",
+      "analyzed_period": "From 2025-10-05T00:00:00Z to 2025-10-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:24.217952",
+      "analyzed_period": "From 2025-10-06T00:00:00Z to 2025-10-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:24.469003",
+      "analyzed_period": "From 2025-10-07T00:00:00Z to 2025-10-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:24.734643",
+      "analyzed_period": "From 2025-10-08T00:00:00Z to 2025-10-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:24.994875",
+      "analyzed_period": "From 2025-10-09T00:00:00Z to 2025-10-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:25.240629",
+      "analyzed_period": "From 2025-10-10T00:00:00Z to 2025-10-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:25.524929",
+      "analyzed_period": "From 2025-10-11T00:00:00Z to 2025-10-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:25.783543",
+      "analyzed_period": "From 2025-10-12T00:00:00Z to 2025-10-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:26.063420",
+      "analyzed_period": "From 2025-10-13T00:00:00Z to 2025-10-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:26.307569",
+      "analyzed_period": "From 2025-10-14T00:00:00Z to 2025-10-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:26.594941",
+      "analyzed_period": "From 2025-10-15T00:00:00Z to 2025-10-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:26.837837",
+      "analyzed_period": "From 2025-10-16T00:00:00Z to 2025-10-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:27.085684",
+      "analyzed_period": "From 2025-10-17T00:00:00Z to 2025-10-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:28.475960",
+      "analyzed_period": "From 2025-10-18T00:00:00Z to 2025-10-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:28.735789",
+      "analyzed_period": "From 2025-10-19T00:00:00Z to 2025-10-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:28.999098",
+      "analyzed_period": "From 2025-10-20T00:00:00Z to 2025-10-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:29.252550",
+      "analyzed_period": "From 2025-10-21T00:00:00Z to 2025-10-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:29.519412",
+      "analyzed_period": "From 2025-10-22T00:00:00Z to 2025-10-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:29.782072",
+      "analyzed_period": "From 2025-10-23T00:00:00Z to 2025-10-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:30.034912",
+      "analyzed_period": "From 2025-10-24T00:00:00Z to 2025-10-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:30.298542",
+      "analyzed_period": "From 2025-10-25T00:00:00Z to 2025-10-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:30.548105",
+      "analyzed_period": "From 2025-10-26T00:00:00Z to 2025-10-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:30.810042",
+      "analyzed_period": "From 2025-10-27T00:00:00Z to 2025-10-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:31.067881",
+      "analyzed_period": "From 2025-10-28T00:00:00Z to 2025-10-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:31.308701",
+      "analyzed_period": "From 2025-10-29T00:00:00Z to 2025-10-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:31.560734",
+      "analyzed_period": "From 2025-10-30T00:00:00Z to 2025-10-31T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:31.802689",
+      "analyzed_period": "From 2025-10-31T00:00:00Z to 2025-11-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:32.059812",
+      "analyzed_period": "From 2025-11-01T00:00:00Z to 2025-11-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:32.492006",
+      "analyzed_period": "From 2025-11-02T00:00:00Z to 2025-11-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:32.737171",
+      "analyzed_period": "From 2025-11-03T00:00:00Z to 2025-11-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:32.995272",
+      "analyzed_period": "From 2025-11-04T00:00:00Z to 2025-11-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:33.235554",
+      "analyzed_period": "From 2025-11-05T00:00:00Z to 2025-11-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:33.482319",
+      "analyzed_period": "From 2025-11-06T00:00:00Z to 2025-11-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:33.760170",
+      "analyzed_period": "From 2025-11-07T00:00:00Z to 2025-11-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:34.025869",
+      "analyzed_period": "From 2025-11-08T00:00:00Z to 2025-11-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:34.308924",
+      "analyzed_period": "From 2025-11-09T00:00:00Z to 2025-11-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:34.571272",
+      "analyzed_period": "From 2025-11-10T00:00:00Z to 2025-11-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:34.864811",
+      "analyzed_period": "From 2025-11-11T00:00:00Z to 2025-11-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:35.121180",
+      "analyzed_period": "From 2025-11-12T00:00:00Z to 2025-11-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:35.366984",
+      "analyzed_period": "From 2025-11-13T00:00:00Z to 2025-11-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:35.639019",
+      "analyzed_period": "From 2025-11-14T00:00:00Z to 2025-11-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:35.891460",
+      "analyzed_period": "From 2025-11-15T00:00:00Z to 2025-11-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:36.130978",
+      "analyzed_period": "From 2025-11-16T00:00:00Z to 2025-11-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:36.409557",
+      "analyzed_period": "From 2025-11-17T00:00:00Z to 2025-11-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:36.659085",
+      "analyzed_period": "From 2025-11-18T00:00:00Z to 2025-11-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:36.913558",
+      "analyzed_period": "From 2025-11-19T00:00:00Z to 2025-11-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:37.193888",
+      "analyzed_period": "From 2025-11-20T00:00:00Z to 2025-11-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:37.468273",
+      "analyzed_period": "From 2025-11-21T00:00:00Z to 2025-11-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:37.726753",
+      "analyzed_period": "From 2025-11-22T00:00:00Z to 2025-11-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:37.986622",
+      "analyzed_period": "From 2025-11-23T00:00:00Z to 2025-11-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:38.285444",
+      "analyzed_period": "From 2025-11-24T00:00:00Z to 2025-11-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:38.525279",
+      "analyzed_period": "From 2025-11-25T00:00:00Z to 2025-11-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:38.825350",
+      "analyzed_period": "From 2025-11-26T00:00:00Z to 2025-11-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:39.105675",
+      "analyzed_period": "From 2025-11-27T00:00:00Z to 2025-11-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:39.390274",
+      "analyzed_period": "From 2025-11-28T00:00:00Z to 2025-11-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:39.642155",
+      "analyzed_period": "From 2025-11-29T00:00:00Z to 2025-11-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:39.888562",
+      "analyzed_period": "From 2025-11-30T00:00:00Z to 2025-12-01T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:40.142390",
+      "analyzed_period": "From 2025-12-01T00:00:00Z to 2025-12-02T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:40.402291",
+      "analyzed_period": "From 2025-12-02T00:00:00Z to 2025-12-03T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:40.670402",
+      "analyzed_period": "From 2025-12-03T00:00:00Z to 2025-12-04T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:40.928882",
+      "analyzed_period": "From 2025-12-04T00:00:00Z to 2025-12-05T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:41.170473",
+      "analyzed_period": "From 2025-12-05T00:00:00Z to 2025-12-06T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:41.416579",
+      "analyzed_period": "From 2025-12-06T00:00:00Z to 2025-12-07T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:41.666846",
+      "analyzed_period": "From 2025-12-07T00:00:00Z to 2025-12-08T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:41.905122",
+      "analyzed_period": "From 2025-12-08T00:00:00Z to 2025-12-09T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:42.171300",
+      "analyzed_period": "From 2025-12-09T00:00:00Z to 2025-12-10T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:42.419894",
+      "analyzed_period": "From 2025-12-10T00:00:00Z to 2025-12-11T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:42.675318",
+      "analyzed_period": "From 2025-12-11T00:00:00Z to 2025-12-12T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:42.942543",
+      "analyzed_period": "From 2025-12-12T00:00:00Z to 2025-12-13T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:43.183007",
+      "analyzed_period": "From 2025-12-13T00:00:00Z to 2025-12-14T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:43.426274",
+      "analyzed_period": "From 2025-12-14T00:00:00Z to 2025-12-15T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:43.671600",
+      "analyzed_period": "From 2025-12-15T00:00:00Z to 2025-12-16T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:43.924785",
+      "analyzed_period": "From 2025-12-16T00:00:00Z to 2025-12-17T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:44.243503",
+      "analyzed_period": "From 2025-12-17T00:00:00Z to 2025-12-18T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:44.476683",
+      "analyzed_period": "From 2025-12-18T00:00:00Z to 2025-12-19T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:44.723577",
+      "analyzed_period": "From 2025-12-19T00:00:00Z to 2025-12-20T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:44.993946",
+      "analyzed_period": "From 2025-12-20T00:00:00Z to 2025-12-21T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:45.262913",
+      "analyzed_period": "From 2025-12-21T00:00:00Z to 2025-12-22T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:45.508119",
+      "analyzed_period": "From 2025-12-22T00:00:00Z to 2025-12-23T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:45.759002",
+      "analyzed_period": "From 2025-12-23T00:00:00Z to 2025-12-24T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:46.032195",
+      "analyzed_period": "From 2025-12-24T00:00:00Z to 2025-12-25T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:46.289233",
+      "analyzed_period": "From 2025-12-25T00:00:00Z to 2025-12-26T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:46.551418",
+      "analyzed_period": "From 2025-12-26T00:00:00Z to 2025-12-27T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:46.799258",
+      "analyzed_period": "From 2025-12-27T00:00:00Z to 2025-12-28T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:47.056248",
+      "analyzed_period": "From 2025-12-28T00:00:00Z to 2025-12-29T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:47.321875",
+      "analyzed_period": "From 2025-12-29T00:00:00Z to 2025-12-30T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:47.576687",
+      "analyzed_period": "From 2025-12-30T00:00:00Z to 2025-12-31T00:00:00Z"
+    },
+    {
+      "success": true,
+      "message": "Aucune commande \u00e0 traiter pour cette p\u00e9riode",
+      "timestamp": "2025-05-01T11:50:47.859376",
+      "analyzed_period": "From 2025-12-31T00:00:00Z to 2026-01-01T00:00:00Z"
+    }
+  ],
+  "duration_seconds": 2368.757325,
+  "duration_formatted": "0:39:28.757325"
+}
