@@ -106,6 +106,7 @@ def get_refund_details(
                 "source_name": source_name,
                 "status": refund_status,
                 "product_id": product_id,
+                "variant_id": li.get("variant_id"),
                 "payment_method_name": payment_method_name,
             }
         )
@@ -128,6 +129,7 @@ def get_refund_details(
                     "source_name": source_name,
                     "status": refund_status,
                     "product_id": product_id,
+                    "variant_id": li.get("variant_id"),
                     "payment_method_name": payment_method_name,
                 }
             )
@@ -220,6 +222,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "source_name": source_name,
                     "status": status,
                     "product_id": product_id,
+                    "variant_id": li.get("variant_id"),
                     "payment_method_name": payment_method_name,
                 }
             )
@@ -244,6 +247,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "source_name": source_name,
                         "status": status,
                         "product_id": product_id,
+                        "variant_id": li.get("variant_id"),
                         "payment_method_name": payment_method_name,
                     }
                 )
@@ -268,6 +272,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "source_name": source_name,
                         "status": status,
                         "product_id": product_id,
+                        "variant_id": li.get("variant_id"),
                         "payment_method_name": payment_method_name,
                     }
                 )
@@ -290,6 +295,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "source_name": t.get("source_name"),
                 "status": t.get("status"),
                 "product_id": None,
+                "variant_id": None,  # Les transactions financières n'ont pas de variant_id spécifique
                 "payment_method_name": (
                     t.get("payment_details", {}).get("payment_method_name")
                     or t.get("gateway")
@@ -384,8 +390,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
             amount, transaction_currency, location_id, source_name, status,
-            product_id, payment_method_name
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            product_id, variant_id, payment_method_name
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
@@ -396,6 +402,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             source_name = %s,
             status = %s,
             product_id = %s,
+            variant_id = %s,
             payment_method_name = %s,
             updated_at_timestamp = CURRENT_TIMESTAMP
         WHERE id = %s
@@ -434,6 +441,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("source_name"),
                             tx.get("status"),
                             tx.get("product_id"),
+                            tx.get("variant_id"),
                             tx.get("payment_method_name"),
                             existing[0],
                         ),
@@ -454,6 +462,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("source_name"),
                             tx.get("status"),
                             tx.get("product_id"),
+                            tx.get("variant_id"),
                             tx.get("payment_method_name"),
                         ),
                     )

@@ -2,8 +2,9 @@ import logging
 import json
 from api.lib.insert_order import insert_order
 
-# Configuration du logging
-logger = logging.getLogger('order_processor')
+# Configuration du logging pour Vercel
+from .logging_config import get_logger
+logger = get_logger('order_processor')
 
 def process_orders(orders):
     """

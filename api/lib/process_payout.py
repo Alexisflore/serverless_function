@@ -20,11 +20,9 @@ from dotenv import load_dotenv
 # 0. Configuration générale & helpers
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger("process_payout")
+# Configuration du logging pour Vercel
+from .logging_config import get_logger
+logger = get_logger("process_payout")
 
 load_dotenv()
 ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")
@@ -114,6 +112,11 @@ def _fetch_payment_method_name(
     Retourne payment_method_name pour une transaction donnée
     (order_id + transaction_id indispensables).
     """
+    # Validation des paramètres
+    if not order_id or not order_tx_id or order_id == "None" or order_tx_id == "None":
+        logger.debug("Invalid parameters: order_id=%s, order_tx_id=%s", order_id, order_tx_id)
+        return None
+        
     try:
         url = (
             f"https://{STORE_DOMAIN}/admin/api/{API_VERSION}"
@@ -161,12 +164,16 @@ def obtenir_transactions_versement(payout_id: str, limite: int = 250) -> List[Di
         logger.info("Tx récupérées pour payout %s: %d", payout_id, len(txs))
 
         for t in txs:
-            # ① présence directe ?
-            pm_name = _fetch_payment_method_name(
-                t["source_order_id"],
-                t["source_order_transaction_id"]
-            )
-            t["payment_method_name"] = pm_name
+            # ① présence directe ? (vérifier que order_id et transaction_id ne sont pas None)
+            order_id = t.get("source_order_id")
+            tx_id = t.get("source_order_transaction_id")
+            
+            if order_id and tx_id:
+                pm_name = _fetch_payment_method_name(order_id, tx_id)
+                t["payment_method_name"] = pm_name
+            else:
+                logger.debug("Skipping payment method fetch: order_id=%s, tx_id=%s", order_id, tx_id)
+                t["payment_method_name"] = None
         return txs
     except Exception as exc:
         logger.error("Exception tx payout %s: %s", payout_id, exc)

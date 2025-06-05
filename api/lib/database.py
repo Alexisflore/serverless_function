@@ -5,15 +5,9 @@ import logging
 import decimal
 import datetime
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()  # Affiche les logs dans la console
-    ]
-)
-logger = logging.getLogger('database')
+# Configuration du logging pour Vercel
+from .logging_config import get_logger
+logger = get_logger('database')
 
 def get_supabase_client():
     """

@@ -5,12 +5,9 @@ import logging
 from dotenv import load_dotenv
 from datetime import datetime
 
-# Configuration du logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('insert_order')
+# Configuration du logging pour Vercel
+from .logging_config import get_logger
+logger = get_logger('insert_order')
 
 def get_db_connection():
     """

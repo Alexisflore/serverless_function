@@ -9,13 +9,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger('inventory')
+# Configuration du logging pour Vercel
+from .logging_config import get_logger
+logger = get_logger('inventory')
 
 ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")
 STORE_DOMAIN = os.getenv("SHOPIFY_STORE_DOMAIN")
