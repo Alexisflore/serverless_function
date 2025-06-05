@@ -10,10 +10,11 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
-
+import time
 import requests
 import psycopg2
 from dotenv import load_dotenv
+
 
 
 # ---------------------------------------------------------------------------
@@ -142,17 +143,32 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     api_version = "2024-10"
 
     # 3.1 Charge l'ordre complet
-    order_url = f"https://{store_domain}/admin/api/{api_version}/orders/{order_id}.json"
-    order_resp = requests.get(order_url, headers=_shopify_headers())
-    if order_resp.status_code != 200:
-        print(f"[Order] {order_resp.status_code}: {order_resp.text}")
-        return []
-
-    order = order_resp.json().get("order", {})
-    client_id = order.get("customer", {}).get("id", -1)
-    source_name = order.get("source_name")
-    fulfillments = order.get("fulfillments", [])
-    refunds = order.get("refunds", [])
+    attempts = 0
+    while attempts < 3:
+        attempts += 1
+        try:
+            order_url = f"https://{store_domain}/admin/api/{api_version}/orders/{order_id}.json"
+            order_resp = requests.get(order_url, headers=_shopify_headers())
+            order_resp.raise_for_status()
+            
+            # Vérification pour éviter l'erreur 'NoneType' object has no attribute 'get'
+            order_data = order_resp.json()
+            if order_data is None:
+                print(f"Réponse JSON vide pour l'ordre {order_id}")
+                return []
+            
+            order = order_data.get("order", {})
+            # Sécurisation de l'accès au client_id
+            customer = order.get("customer")
+            client_id = customer.get("id", -1) if customer is not None else -1
+            source_name = order.get("source_name")
+            fulfillments = order.get("fulfillments", [])
+            refunds = order.get("refunds", [])
+        except Exception as e:
+            print(f"Error getting order: {e}")
+            if attempts == 3:
+                return []
+            time.sleep(1)
 
     # 3.2 Charge toutes les transactions financières (split tender, etc.)
     tx_url = (

@@ -420,7 +420,8 @@ def insert_order(order_data):
                         if line_item_id is None:
                             logger.warning(f"Ligne d'article ignorée: ID manquant pour la commande {order_id}")
                             continue
-                            
+                        if line_item_id == "14790792380487":
+                            print(line_item)
                         # Extraire les informations de taxes pour cet article (jusqu'à 5 taxes)
                         item_tax_lines = line_item.get('tax_lines', [])
                         

@@ -6,8 +6,8 @@ def get_dates():
     """
     tz = timezone(timedelta(hours=+2))
     today = datetime.now(tz)
-    # yesterday = today - timedelta(days=1)
-    return today.replace(hour=today.hour - 1, minute=0, second=0, microsecond=0).isoformat(), today.replace(hour=today.hour + 1, minute=0, second=0, microsecond=0).isoformat()
+    yesterday = today - timedelta(days=1)
+    return yesterday.replace(hour=yesterday.hour, minute=0, second=0, microsecond=0).isoformat(), today.replace(hour=today.hour + 1, minute=0, second=0, microsecond=0).isoformat()
 
 if __name__ == "__main__":
     print(get_dates())

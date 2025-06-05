@@ -10,6 +10,7 @@ python-dotenv = "*"
 requests = "*"
 vercel = "*"
 sqlalchemy = "*"
+dotenv = "*"
 
 [dev-packages]
 ipykernel = "*"
