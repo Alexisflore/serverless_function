@@ -96,6 +96,62 @@ def format_discount_codes(order):
         
     return ', '.join([code.get('code', '') for code in discount_codes if 'code' in code])
 
+def parse_tags_to_list(tags_str):
+    """
+    Parse une chaîne de tags en liste Python
+    
+    Args:
+        tags_str (str): Chaîne contenant les tags
+        
+    Returns:
+        list: Liste des tags ou None si vide/invalide
+    """
+    if not tags_str or tags_str.strip() == '':
+        return None
+        
+    try:
+        # Si c'est déjà une liste JSON
+        if tags_str.startswith('['):
+            tags_list = json.loads(tags_str)
+        else:
+            # Sinon, séparer par virgules et nettoyer
+            tags_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
+        
+        # Retourner la liste si elle n'est pas vide, sinon None
+        return tags_list if tags_list else None
+        
+    except Exception as e:
+        logger.warning(f"Erreur parsing tags: {tags_str} - {str(e)}")
+        return None
+
+def extract_market_from_tags(tags_str):
+    """
+    Extrait le market (US ou JP) depuis une chaîne de tags
+    
+    Args:
+        tags_str (str): Chaîne contenant les tags
+        
+    Returns:
+        str: Market (US, JP) ou None
+    """
+    tags_list = parse_tags_to_list(tags_str)
+    
+    if not tags_list:
+        return None
+        
+    try:
+        # Chercher US ou JP dans tous les tags (logique robuste)
+        for tag in tags_list:
+            tag_clean = tag.strip().upper()
+            if tag_clean in ['US', 'JP']:
+                return tag_clean
+        
+        return None
+        
+    except Exception as e:
+        logger.warning(f"Erreur extraction market: {tags_str} - {str(e)}")
+        return None
+
 def extract_tax_lines(tax_lines, index=0):
     """
     Extrait les informations d'une ligne de taxe spécifique
@@ -270,7 +326,11 @@ def insert_order(order_data):
                     "tracking_number": order.get('tracking_number'),       # tracking_number
                     
                     # Formatage des codes de réduction
-                    "discount_codes": format_discount_codes(order)         # discount_codes > code
+                    "discount_codes": format_discount_codes(order),         # discount_codes > code
+                    
+                    # Tags et market
+                    "tags_list": parse_tags_to_list(order.get('tags', '')),  # tags parsés en array JSON
+                    "market": extract_market_from_tags(order.get('tags', ''))  # market extrait des tags
                 }
                 
                 # Extraire les informations de taxes (jusqu'à 5 taxes différentes)
@@ -355,7 +415,13 @@ def insert_order(order_data):
                 for key, value in order_mapped.items():
                     if value is not None:  # Ne pas insérer les valeurs NULL
                         columns.append(key)
-                        values.append(value)
+                        
+                        # Sérialiser les listes en JSON pour la base de données
+                        if key == 'tags_list' and isinstance(value, list):
+                            values.append(json.dumps(value))
+                        else:
+                            values.append(value)
+                            
                         placeholders.append('%s')
                 
                 # Vérification supplémentaire pour s'assurer que _id_order est présent

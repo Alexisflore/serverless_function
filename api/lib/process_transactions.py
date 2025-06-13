@@ -43,6 +43,47 @@ def _pg_connect():
     return psycopg2.connect(db_url)
 
 
+def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int | None) -> int | None:
+    """
+    Récupère l'ID orders_details correspondant à un produit/variant d'une commande.
+    
+    Args:
+        order_id: ID de la commande
+        product_id: ID du produit (peut être None pour les transactions financières globales)
+        variant_id: ID du variant (peut être None pour les transactions financières globales)
+        
+    Returns:
+        L'ID orders_details correspondant ou None si pas de correspondance
+    """
+    if product_id is None or variant_id is None:
+        return None  # Transactions financières globales
+    
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+        
+        query = """
+            SELECT _id_order_detail 
+            FROM orders_details 
+            WHERE _id_order::bigint = %s 
+              AND _id_product = %s 
+              AND variant_id = %s
+            LIMIT 1
+        """
+        
+        cur.execute(query, [int(order_id), product_id, variant_id])
+        result = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        
+        return result[0] if result else None
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération de orders_details_id: {e}")
+        return None
+
+
 def _iso_to_dt(date_str: str) -> datetime:
     """Convertit 2025-03-26T19:11:42-04:00 → obj datetime en UTC."""
     if date_str.endswith("Z"):
@@ -92,6 +133,7 @@ def get_refund_details(
         )
 
         # 2.1 ligne article remboursée
+        orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"))
         items.append(
             {
                 "date": refund_date,
@@ -108,6 +150,7 @@ def get_refund_details(
                 "product_id": product_id,
                 "variant_id": li.get("variant_id"),
                 "payment_method_name": payment_method_name,
+                "orders_details_id": orders_details_id,
             }
         )
 
@@ -131,6 +174,7 @@ def get_refund_details(
                     "product_id": product_id,
                     "variant_id": li.get("variant_id"),
                     "payment_method_name": payment_method_name,
+                    "orders_details_id": orders_details_id,  # Réutilise le même orders_details_id
                 }
             )
     return items
@@ -202,10 +246,14 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
 
         for li in f.get("line_items", []):
             product_id = li.get("product_id")
+            variant_id = li.get("variant_id")
             gross_price = float(li.get("price", 0))
             currency = li.get("price_set", {}).get("shop_money", {}).get(
                 "currency_code", "USD"
             )
+            
+            # Récupération de l'orders_details_id pour ce line_item
+            orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
 
             #  – vente brute HT
             transactions.append(
@@ -222,8 +270,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "source_name": source_name,
                     "status": status,
                     "product_id": product_id,
-                    "variant_id": li.get("variant_id"),
+                    "variant_id": variant_id,
                     "payment_method_name": payment_method_name,
+                    "orders_details_id": orders_details_id,
                 }
             )
 
@@ -247,8 +296,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "source_name": source_name,
                         "status": status,
                         "product_id": product_id,
-                        "variant_id": li.get("variant_id"),
+                        "variant_id": variant_id,
                         "payment_method_name": payment_method_name,
+                        "orders_details_id": orders_details_id,
                     }
                 )
 
@@ -272,8 +322,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "source_name": source_name,
                         "status": status,
                         "product_id": product_id,
-                        "variant_id": li.get("variant_id"),
+                        "variant_id": variant_id,
                         "payment_method_name": payment_method_name,
+                        "orders_details_id": orders_details_id,
                     }
                 )
 
@@ -300,6 +351,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     t.get("payment_details", {}).get("payment_method_name")
                     or t.get("gateway")
                 ),
+                "orders_details_id": None,  # Les transactions financières globales n'ont pas d'orders_details_id
             }
         )
 
@@ -359,7 +411,7 @@ def get_transactions_between_dates(start: datetime, end: datetime) -> List[Dict]
 
 def get_transactions_since_date(dt_since: datetime):
     print(f"Récupération des transactions depuis {dt_since.isoformat()}")
-    return get_transactions_between_dates(dt_since, datetime.now(datetime.UTC))
+    return get_transactions_between_dates(dt_since, datetime.now())
 
 
 # ---------------------------------------------------------------------------
@@ -390,8 +442,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
             amount, transaction_currency, location_id, source_name, status,
-            product_id, variant_id, payment_method_name
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            product_id, variant_id, payment_method_name, orders_details_id
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
@@ -404,6 +456,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             product_id = %s,
             variant_id = %s,
             payment_method_name = %s,
+            orders_details_id = %s,
             updated_at_timestamp = CURRENT_TIMESTAMP
         WHERE id = %s
     """
@@ -443,6 +496,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("product_id"),
                             tx.get("variant_id"),
                             tx.get("payment_method_name"),
+                            tx.get("orders_details_id"),
                             existing[0],
                         ),
                     )
@@ -464,6 +518,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("product_id"),
                             tx.get("variant_id"),
                             tx.get("payment_method_name"),
+                            tx.get("orders_details_id"),
                         ),
                     )
                     stats["inserted"] += 1

@@ -22,8 +22,8 @@ def get_dates_for_year(year=2025):
     Generator function that yields date pairs for each day of the specified year
     Each pair consists of (start_date, end_date) for a single day
     """
-    start_date = datetime(year, 5, 23)
-    end_date = datetime(year, 5, 24)
+    start_date = datetime(year, 6, 13)
+    end_date = datetime(year, 6, 14)
 
     current = start_date
     while current < end_date:
