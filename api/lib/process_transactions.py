@@ -125,12 +125,19 @@ def get_refund_details(
     items: List[Dict[str, Any]] = []
 
     for refund_item in refund.get("refund_line_items", []):
+        # Ne traiter que les articles avec restock_type = "restock"
+        if refund_item.get("restock_type") != "restock":
+            continue
+            
         li = refund_item.get("line_item", {})
         product_id = li.get("product_id")
         subtotal = float(refund_item.get("subtotal", 0))
         currency = refund_item.get("subtotal_set", {}).get("shop_money", {}).get(
             "currency_code", "USD"
         )
+
+        # Récupère le location_id spécifique à ce refund_line_item, sinon utilise celui du refund global
+        line_item_location_id = refund_item.get("location_id") or location_id
 
         # 2.1 ligne article remboursée
         orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"))
@@ -144,7 +151,7 @@ def get_refund_details(
                 "transaction_description": f"Refund: {li.get('name')}",
                 "amount": -subtotal,
                 "transaction_currency": currency,
-                "location_id": location_id,
+                "location_id": line_item_location_id,
                 "source_name": source_name,
                 "status": refund_status,
                 "product_id": product_id,
@@ -168,7 +175,7 @@ def get_refund_details(
                     "transaction_currency": tax.get("price_set", {})
                     .get("shop_money", {})
                     .get("currency_code", currency),
-                    "location_id": location_id,
+                    "location_id": line_item_location_id,
                     "source_name": source_name,
                     "status": refund_status,
                     "product_id": product_id,
@@ -242,6 +249,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     for f in fulfillments:
         location_id = f.get("location_id")
         status = f.get("status")
+        if status != "success":
+            continue
         created_at = f.get("created_at")
 
         for li in f.get("line_items", []):
@@ -331,7 +340,18 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     # ------------------------------------------------------------------ #
     # 3.b  Transactions financières (split-tender, Shop Pay, remboursements)
     # ------------------------------------------------------------------ #
+    
+    # Récupère le location_id principal depuis les fulfillments si disponible
+    primary_location_id = None
+    if fulfillments:
+        primary_location_id = fulfillments[0].get("location_id")
+    
     for t in tx_list:
+        # Utilise le location_id de la transaction, sinon celui du fulfillment principal
+        transaction_location_id = t.get("location_id") or primary_location_id
+        if t.get("status") != "success":
+            continue
+
         transactions.append(
             {
                 "date": t.get("created_at"),
@@ -342,16 +362,16 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "transaction_description": f"TX {t['id']}",
                 "amount": float(t.get("amount", 0)),
                 "transaction_currency": t.get("currency"),
-                "location_id": t.get("location_id"),
-                "source_name": t.get("source_name"),
+                "location_id": transaction_location_id,
+                "source_name": t.get("source_name") or source_name,
                 "status": t.get("status"),
-                "product_id": None,
-                "variant_id": None,  # Les transactions financières n'ont pas de variant_id spécifique
+                "product_id": None,  # Les transactions financières globales n'ont pas de produit spécifique
+                "variant_id": None,  # Les transactions financières globales n'ont pas de variant spécifique
                 "payment_method_name": (
                     t.get("payment_details", {}).get("payment_method_name")
                     or t.get("gateway")
                 ),
-                "orders_details_id": None,  # Les transactions financières globales n'ont pas d'orders_details_id
+                "orders_details_id": None,  # Les transactions financières globales n'ont pas d'orders_details_id spécifique
             }
         )
 

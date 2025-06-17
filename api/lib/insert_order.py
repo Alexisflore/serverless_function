@@ -146,11 +146,11 @@ def extract_market_from_tags(tags_str):
             if tag_clean in ['US', 'JP']:
                 return tag_clean
         
-        return None
+        return "US"
         
     except Exception as e:
         logger.warning(f"Erreur extraction market: {tags_str} - {str(e)}")
-        return None
+        return "US"
 
 def extract_tax_lines(tax_lines, index=0):
     """
