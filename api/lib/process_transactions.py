@@ -126,7 +126,7 @@ def get_refund_details(
     for refund_item in refund.get("refund_line_items", []):
         # Ne traiter que les articles avec restock_type = "restock"
         account_type = "Returns"
-        refund_status = refund.get("restock_type")
+        refund_status = refund_item.get("restock_type")
         li = refund_item.get("line_item", {})
         product_id = li.get("product_id")
         subtotal = float(refund_item.get("subtotal", 0))
