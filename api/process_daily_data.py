@@ -10,6 +10,8 @@ from api.lib.shopify_api import get_daily_orders
 from api.lib.order_processor import process_orders
 from api.lib.process_transactions import get_transactions_between_dates, process_transactions
 from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
+from api.lib.product_processor import update_products_incremental
+from api.lib.location_processor import update_locations_incremental
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -31,6 +33,16 @@ def process_daily_data(start_date, end_date):
     }
     
     try:
+        # 0. Update products incrementally (check for new products)
+        print("🛍️ Mise à jour incrémentale des produits...")
+        products_result = update_products_incremental()
+        print(f"📦 Produits: {products_result.get('message', 'Mis à jour')}")
+        
+        # 0.1. Update locations incrementally (check for new locations)
+        print("🏢 Mise à jour incrémentale des locations...")
+        locations_result = update_locations_incremental()
+        print(f"📍 Locations: {locations_result.get('message', 'Mis à jour')}")
+        
         # 1. Get API data for the period
         orders = get_daily_orders(start_date, end_date)
 
@@ -70,7 +82,9 @@ def process_daily_data(start_date, end_date):
             "details": f"Commandes insérées: {result.get('orders_inserted', 0)}, mises à jour: {result.get('orders_updated', 0)}, ignorées: {result.get('orders_skipped', 0)}",
             "timestamp": datetime.now().isoformat(),
             "analyzed_period": f"From {start_date} to {end_date}",
-            "transactions_processed": f"{len(transactions)} transactions traitées avec succès"
+            "transactions_processed": f"{len(transactions)} transactions traitées avec succès",
+            "products_synchronized": products_result.get('stats', {}).get('inserted', 0),
+            "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0)
         })
         
         return response_data
