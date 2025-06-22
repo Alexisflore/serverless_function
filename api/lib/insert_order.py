@@ -259,7 +259,7 @@ def insert_order(order_data):
                     # Statuts
                     "confirmed": order.get('confirmed'),                   # confirmed
                     "financial_status": order.get('financial_status'),     # financial_status
-                    "fulfillment_status": order.get('fulfillment_status'), # fulfillment_status
+                    "fulfillment_status": order.get('fulfillment_status') or "unfulfilled", # fulfillment_status
                     "location_id": order.get('location_id'),               # location_id
                     
                     # Contact et dates
@@ -496,7 +496,7 @@ def insert_order(order_data):
                             "current_quantity": line_item.get('current_quantity'), # line_items > current_quantity
                             "fulfillable_quantity": line_item.get('fulfillable_quantity'), # line_items > fulfillable_quantity
                             "fulfillment_service": line_item.get('fulfillment_service'), # line_items > fulfillment_service
-                            "fulfillment_status": line_item.get('fulfillment_status'), # line_items > fulfillment_status
+                            "fulfillment_status": line_item.get('fulfillment_status') or "unfulfilled",
                             "gift_card": line_item.get('gift_card'),    # line_items > gift_card
                             "grams": line_item.get('grams'),           # line_items > grams
                             "name": line_item.get('name'),             # line_items > name
