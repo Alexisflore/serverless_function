@@ -119,16 +119,14 @@ def get_refund_details(
 
     refund = resp.json().get("refund", {})
     refund_date = refund.get("created_at")
-    refund_status = refund.get("status")
     location_id = refund.get("location_id")
 
     items: List[Dict[str, Any]] = []
 
     for refund_item in refund.get("refund_line_items", []):
         # Ne traiter que les articles avec restock_type = "restock"
-        if refund_item.get("restock_type") != "restock":
-            continue
-            
+        account_type = "Returns"
+        refund_status = refund.get("restock_type")
         li = refund_item.get("line_item", {})
         product_id = li.get("product_id")
         subtotal = float(refund_item.get("subtotal", 0))
@@ -147,7 +145,7 @@ def get_refund_details(
                 "order_id": order_id,
                 "client_id": client_id,
                 "type": "refund_line_item",
-                "account_type": "Refunds",
+                "account_type": account_type,
                 "transaction_description": f"Refund: {li.get('name')}",
                 "amount": -subtotal,
                 "transaction_currency": currency,
@@ -352,19 +350,34 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
         if t.get("status") != "success":
             continue
 
+        # Détermine le bon account_type selon le kind de transaction
+        transaction_kind = t.get("kind")
+        if transaction_kind == "refund":
+            account_type = "Refunds"
+        else:
+            account_type = "Payments"
+
+        # Utilise le status de la transaction (ex: success depuis payment_refund_attributes)
+        transaction_status = t.get("status")
+        # Si c'est un refund, on peut aussi récupérer le status depuis payments_refund_attributes
+        if transaction_kind == "refund" and t.get("payments_refund_attributes"):
+            refund_status = t.get("payments_refund_attributes", {}).get("status")
+            if refund_status:
+                transaction_status = refund_status
+
         transactions.append(
             {
                 "date": t.get("created_at"),
                 "order_id": order_id,
                 "client_id": client_id,
-                "type": t.get("kind"),                 # authorization, capture, sale, refund…
-                "account_type": "Payments",
+                "type": transaction_kind,                 # authorization, capture, sale, refund…
+                "account_type": account_type,
                 "transaction_description": f"TX {t['id']}",
                 "amount": float(t.get("amount", 0)),
                 "transaction_currency": t.get("currency"),
                 "location_id": transaction_location_id,
                 "source_name": t.get("source_name") or source_name,
-                "status": t.get("status"),
+                "status": transaction_status,
                 "product_id": None,  # Les transactions financières globales n'ont pas de produit spécifique
                 "variant_id": None,  # Les transactions financières globales n'ont pas de variant spécifique
                 "payment_method_name": (
