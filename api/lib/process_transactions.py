@@ -148,6 +148,7 @@ def get_refund_details(
                 "account_type": account_type,
                 "transaction_description": f"Refund: {li.get('name')}",
                 "amount": -subtotal,
+                "amount_currency": None,  # Pas applicable pour les refund line items
                 "transaction_currency": currency,
                 "location_id": line_item_location_id,
                 "source_name": source_name,
@@ -170,6 +171,7 @@ def get_refund_details(
                     "account_type": "Taxes",
                     "transaction_description": tax.get("title"),
                     "amount": -float(tax.get("price", 0)),
+                    "amount_currency": None,  # Pas applicable pour les taxes de remboursement
                     "transaction_currency": tax.get("price_set", {})
                     .get("shop_money", {})
                     .get("currency_code", currency),
@@ -215,6 +217,19 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             source_name = order.get("source_name")
             fulfillments = order.get("fulfillments", [])
             refunds = order.get("refunds", [])
+            
+            # Calcul du taux de change USD/locale pour les paiements
+            usd_to_local_rate = 1.0  # Par défaut, pas de conversion
+            total_price_set = order.get("total_price_set", {})
+            shop_money = total_price_set.get("shop_money", {})
+            presentment_money = total_price_set.get("presentment_money", {})
+            
+            if shop_money and presentment_money:
+                usd_amount = float(shop_money.get("amount", 0))
+                local_amount = float(presentment_money.get("amount", 0))
+                if local_amount > 0:
+                    usd_to_local_rate = usd_amount / local_amount
+            
         except Exception as e:
             print(f"Error getting order: {e}")
             if attempts == 3:
@@ -272,6 +287,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "account_type": "Sales",
                     "transaction_description": f"{li.get('name')} Gross HT",
                     "amount": gross_price,
+                    "amount_currency": None,  # Pas applicable pour les ventes
                     "transaction_currency": currency,
                     "location_id": location_id,
                     "source_name": source_name,
@@ -298,6 +314,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "account_type": "Discounts",
                         "transaction_description": f"Discount for {li.get('name')}",
                         "amount": -discount_amount,
+                        "amount_currency": None,  # Pas applicable pour les remises
                         "transaction_currency": disc_currency,
                         "location_id": location_id,
                         "source_name": source_name,
@@ -324,6 +341,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "account_type": "Taxes",
                         "transaction_description": tax.get("title"),
                         "amount": tax_amount,
+                        "amount_currency": None,  # Pas applicable pour les taxes
                         "transaction_currency": tax_currency,
                         "location_id": location_id,
                         "source_name": source_name,
@@ -365,6 +383,20 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             if refund_status:
                 transaction_status = refund_status
 
+        # Calcul des montants pour les paiements
+        tx_amount_local = float(t.get("amount", 0))
+        tx_currency = t.get("currency")
+        
+        # Pour les transactions de type "Payments" et "Refunds", calculer le montant USD
+        if account_type in ["Payments", "Refunds"]:
+            tx_amount_usd = tx_amount_local * usd_to_local_rate
+            amount_currency = tx_amount_local  # Montant en devise locale
+            amount = tx_amount_usd  # Montant en USD
+        else:
+            # Pour les autres types, garder l'ancien comportement
+            amount_currency = None
+            amount = tx_amount_local
+
         transactions.append(
             {
                 "date": t.get("created_at"),
@@ -373,8 +405,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "type": transaction_kind,                 # authorization, capture, sale, refund…
                 "account_type": account_type,
                 "transaction_description": f"TX {t['id']}",
-                "amount": float(t.get("amount", 0)),
-                "transaction_currency": t.get("currency"),
+                "amount": amount,
+                "amount_currency": amount_currency,
+                "transaction_currency": tx_currency,
                 "location_id": transaction_location_id,
                 "source_name": t.get("source_name") or source_name,
                 "status": transaction_status,
@@ -474,17 +507,19 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     insert_q = """
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
-            amount, transaction_currency, location_id, source_name, status,
+            amount, amount_currency, transaction_currency, location_id, source_name, status,
             product_id, variant_id, payment_method_name, orders_details_id
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
         UPDATE transaction SET
             client_id = %s,
+            account_type = %s,
+            amount = %s,
+            amount_currency = %s,
             transaction_currency = %s,
             location_id = %s,
-            source_name = %s,
             status = %s,
             product_id = %s,
             variant_id = %s,
@@ -496,8 +531,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
 
     check_q = """
         SELECT id FROM transaction
-        WHERE date = %s AND order_id = %s AND account_type = %s
-          AND transaction_description = %s AND amount = %s
+        WHERE date = %s AND order_id = %s AND transaction_description = %s
+          AND source_name = %s
     """
 
     try:
@@ -510,9 +545,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                 params_check = (
                     dt_obj,
                     tx["order_id"],
-                    tx["account_type"],
                     tx["transaction_description"],
-                    tx["amount"],
+                    tx.get("source_name"),
                 )
                 cur.execute(check_q, params_check)
                 existing = cur.fetchone()
@@ -522,9 +556,11 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                         update_q,
                         (
                             tx["client_id"],
+                            tx["account_type"],
+                            tx["amount"],
+                            tx.get("amount_currency"),
                             tx["transaction_currency"],
                             tx.get("location_id"),
-                            tx.get("source_name"),
                             tx.get("status"),
                             tx.get("product_id"),
                             tx.get("variant_id"),
@@ -544,6 +580,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx["account_type"],
                             tx["transaction_description"],
                             tx["amount"],
+                            tx.get("amount_currency"),
                             tx["transaction_currency"],
                             tx.get("location_id"),
                             tx.get("source_name"),
