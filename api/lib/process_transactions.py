@@ -157,6 +157,7 @@ def get_refund_details(
                 "variant_id": li.get("variant_id"),
                 "payment_method_name": payment_method_name,
                 "orders_details_id": orders_details_id,
+                "duties_amount": None,  # Pas de duties sur les remboursements
             }
         )
 
@@ -182,6 +183,7 @@ def get_refund_details(
                     "variant_id": li.get("variant_id"),
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,  # Réutilise le même orders_details_id
+                    "duties_amount": None,  # Pas de duties sur les taxes de remboursement
                 }
             )
     return items
@@ -230,6 +232,13 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 if local_amount > 0:
                     usd_to_local_rate = usd_amount / local_amount
             
+            # Extraction des duties au niveau commande
+            duties_amount_usd = 0.0
+            current_total_duties_set = order.get("current_total_duties_set", {})
+            if current_total_duties_set:
+                shop_duties = current_total_duties_set.get("shop_money", {})
+                duties_amount_usd = float(shop_duties.get("amount", 0))
+            
         except Exception as e:
             print(f"Error getting order: {e}")
             if attempts == 3:
@@ -277,6 +286,13 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             # Récupération de l'orders_details_id pour ce line_item
             orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
 
+            # Extraction des duties spécifiques au line_item
+            line_item_duties_amount = 0.0
+            duties = li.get("duties", [])
+            for duty in duties:
+                duty_amount = duty.get("duty_amount", {})
+                line_item_duties_amount += float(duty_amount.get("amount", 0))
+
             #  – vente brute HT
             transactions.append(
                 {
@@ -296,6 +312,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "variant_id": variant_id,
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,
+                    "duties_amount": line_item_duties_amount if line_item_duties_amount > 0 else None,
                 }
             )
 
@@ -323,6 +340,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "variant_id": variant_id,
                         "payment_method_name": payment_method_name,
                         "orders_details_id": orders_details_id,
+                        "duties_amount": None,  # Pas de duties sur les remises
                     }
                 )
 
@@ -350,6 +368,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "variant_id": variant_id,
                         "payment_method_name": payment_method_name,
                         "orders_details_id": orders_details_id,
+                        "duties_amount": None,  # Pas de duties sur les taxes
                     }
                 )
 
@@ -397,6 +416,11 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             amount_currency = None
             amount = tx_amount_local
 
+        # Pour les paiements, associer les duties totales de la commande
+        tx_duties_amount = None
+        if account_type == "Payments" and duties_amount_usd > 0:
+            tx_duties_amount = duties_amount_usd
+
         transactions.append(
             {
                 "date": t.get("created_at"),
@@ -418,6 +442,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     or t.get("gateway")
                 ),
                 "orders_details_id": None,  # Les transactions financières globales n'ont pas d'orders_details_id spécifique
+                "duties_amount": tx_duties_amount,
             }
         )
 
@@ -508,8 +533,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
             amount, amount_currency, transaction_currency, location_id, source_name, status,
-            product_id, variant_id, payment_method_name, orders_details_id
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            product_id, variant_id, payment_method_name, orders_details_id, duties_amount
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
@@ -525,6 +550,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             variant_id = %s,
             payment_method_name = %s,
             orders_details_id = %s,
+            duties_amount = %s,
             updated_at_timestamp = CURRENT_TIMESTAMP
         WHERE id = %s
     """
@@ -566,6 +592,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("variant_id"),
                             tx.get("payment_method_name"),
                             tx.get("orders_details_id"),
+                            tx.get("duties_amount"),
                             existing[0],
                         ),
                     )
@@ -589,6 +616,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("variant_id"),
                             tx.get("payment_method_name"),
                             tx.get("orders_details_id"),
+                            tx.get("duties_amount"),
                         ),
                     )
                     stats["inserted"] += 1

@@ -33,6 +33,7 @@ def get_refund_details(order_id: str, refund_id: str, client_id: str):
         # print(json.dumps(refund_data, indent=2, ensure_ascii=False))
         refund_date = refund_data.get("created_at", "N/A")
         refund_status = refund_data.get("status", "N/A")
+        location_id = refund_data.get("location_id", "N/A")
 
         # Traiter chaque ligne d'article remboursé
         refund_line_items = refund_data.get("refund_line_items", [])
@@ -53,7 +54,7 @@ def get_refund_details(order_id: str, refund_id: str, client_id: str):
                 "amount": -float(subtotal) if isinstance(subtotal, (int, float, str)) else 0.0,
                 "status": refund_status,
                 "transaction_currency": transaction_currency,
-                "location_id": refund_data.get("location_id", "N/A"),
+                "location_id": refund_item.get("location_id") or location_id,
                 "source_name": None,  # Sera rempli après
                 "product_id": product_id,
             }
