@@ -6,7 +6,7 @@ test.ipynb
 
 **/*__pycache__**
 
-api/lib/__pycache__
+api/lib/__pycache__/**
 
 api/lib/process_transactions.pyc
 api/__pycache__
