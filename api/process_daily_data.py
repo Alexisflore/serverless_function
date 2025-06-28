@@ -12,6 +12,7 @@ from api.lib.process_transactions import get_transactions_between_dates, process
 from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
+from api.lib.process_draft_orders import get_drafts_since_date, process_draft_orders, find_last_draft_order_date
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -43,6 +44,20 @@ def process_daily_data(start_date, end_date):
         locations_result = update_locations_incremental()
         print(f"📍 Locations: {locations_result.get('message', 'Mis à jour')}")
         
+        # 0.2. Process draft orders since last processed date
+        print("📝 Traitement des draft orders...")
+        try:
+            # Get all draft order transactions since that date
+            draft_transactions = get_drafts_since_date(start_date)
+            
+            # Process the draft order transactions
+            draft_result = process_draft_orders(draft_transactions)
+            print(f"📋 Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées")
+            
+        except Exception as e:
+            print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
+            draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
+        
         # 1. Get API data for the period
         orders = get_daily_orders(start_date, end_date)
 
@@ -69,11 +84,11 @@ def process_daily_data(start_date, end_date):
         recuperer_et_enregistrer_versements_jour(day_date)
 
         # 6. Prepare response based on results
-        if result.get("errors") and len(result.get("errors", [])) > 0 or result_transactions.get("errors") and len(result_transactions.get("errors", [])) > 0:
+        if result.get("errors") and len(result.get("errors", [])) > 0 or result_transactions.get("errors") and len(result_transactions.get("errors", [])) > 0 or draft_result.get("errors") and len(draft_result.get("errors", [])) > 0:
             # Il y a eu des erreurs, mais nous avons quand même des statistiques
             response_data["success"] = False
             response_data["message"] = f"{len(orders)} commandes traitées avec des erreurs"
-            response_data["error"] = result.get("errors")[0] if result.get("errors") else "Erreurs lors du traitement"
+            response_data["error"] = result.get("errors")[0] if result.get("errors") else (result_transactions.get("errors")[0] if result_transactions.get("errors") else draft_result.get("errors")[0])
         else:
             response_data["success"] = True
             response_data["message"] = f"{len(orders)} commandes traitées avec succès"
@@ -84,7 +99,8 @@ def process_daily_data(start_date, end_date):
             "analyzed_period": f"From {start_date} to {end_date}",
             "transactions_processed": f"{len(transactions)} transactions traitées avec succès",
             "products_synchronized": products_result.get('stats', {}).get('inserted', 0),
-            "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0)
+            "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0),
+            "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées"
         })
         
         return response_data

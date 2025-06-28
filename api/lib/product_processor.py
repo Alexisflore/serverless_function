@@ -215,78 +215,6 @@ def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]
         'variants': variants_data
     }
 
-def ensure_products_table():
-    """
-    S'assure que la table products existe, la crée si nécessaire
-    """
-    try:
-        conn = _pg_connect()
-        cur = conn.cursor()
-        
-        # Vérifier si la table existe
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'products'
-            );
-        """)
-        
-        table_exists = cur.fetchone()[0]
-        
-        if not table_exists:
-            print("📋 Création de la table products...")
-            
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS products (
-                variant_id BIGINT PRIMARY KEY,
-                product_id BIGINT NOT NULL,
-                inventory_item_id BIGINT,
-                cogs DECIMAL(15, 2),
-                status VARCHAR(50),
-                vendor VARCHAR(255),
-                barcode VARCHAR(255),
-                sku VARCHAR(255),
-                value_color VARCHAR(100),
-                value_size VARCHAR(100),
-                title VARCHAR(500),
-                price DECIMAL(15, 2),
-                compare_at_price DECIMAL(15, 2),
-                weight DECIMAL(15, 2),
-                weight_unit VARCHAR(20),
-                position INTEGER,
-                product_title VARCHAR(500),
-                product_handle VARCHAR(255),
-                product_type VARCHAR(255),
-                tags TEXT,
-                created_at TIMESTAMP,
-                updated_at TIMESTAMP,
-                imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            
-            -- Créer des index pour améliorer les performances
-            CREATE INDEX idx_products_product_id ON products(product_id);
-            CREATE INDEX idx_products_inventory_item_id ON products(inventory_item_id);
-            CREATE INDEX idx_products_sku ON products(sku);
-            CREATE INDEX idx_products_vendor ON products(vendor);
-            CREATE INDEX idx_products_created_at ON products(created_at);
-            """
-            
-            cur.execute(create_table_query)
-            conn.commit()
-            print("✅ Table 'products' créée avec succès!")
-        else:
-            print("✅ Table 'products' existe déjà")
-        
-    except Exception as e:
-        print(f"❌ Erreur lors de la création de la table: {e}")
-        raise
-    finally:
-        if 'cur' in locals():
-            cur.close()
-        if 'conn' in locals():
-            conn.close()
-
 def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]:
     """
     Insère les nouveaux variants dans la table products
@@ -423,13 +351,10 @@ def update_products_incremental() -> Dict[str, Any]:
     try:
         print("🔍 Démarrage de la mise à jour incrémentale des produits...")
         
-        # 1. S'assurer que la table existe
-        ensure_products_table()
-        
-        # 2. Récupérer la date du dernier produit
+        # 1. Récupérer la date du dernier produit
         latest_date = get_latest_product_date()
         
-        # 3. Récupérer les nouveaux produits
+        # 2. Récupérer les nouveaux produits
         shopify_data = get_new_shopify_products(latest_date)
         variants_data = shopify_data['variants']
         
@@ -440,7 +365,7 @@ def update_products_incremental() -> Dict[str, Any]:
                 "details": {"inserted": 0, "updated": 0, "errors": 0, "total": 0}
             }
         
-        # 4. Insérer les nouveaux produits
+        # 3. Insérer les nouveaux produits
         result = insert_products_to_db(variants_data)
         
         return {
@@ -455,4 +380,4 @@ def update_products_incremental() -> Dict[str, Any]:
             "success": False,
             "message": f"Erreur: {str(e)}",
             "details": {"inserted": 0, "updated": 0, "errors": 1, "total": 0}
-        } 
+        }
