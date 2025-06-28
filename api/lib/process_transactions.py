@@ -150,273 +150,6 @@ def apply_currency_conversion(local_amount: float, exchange_rate: float, local_c
     
     return amount_usd, amount_currency
 
-
-# def validate_payment_formula(transactions: List[Dict[str, Any]], order_id: str) -> Dict[str, Any]:
-    # """
-    # Valide la formule de paiement en tenant compte des différents types de commandes et statuts.
-    
-    # Logiques supportées:
-    # 1. Commandes normales: Payment = Sales + Shipping + Duties
-    # 2. Commandes avec taxes dans payment: Payment = Sales + Shipping + Duties + Taxes
-    # 3. Commandes annulées/remboursées: Gestion des refunds
-    # 4. Commandes avec remises totales: Payment peut être 0
-    
-    # Args:
-    #     transactions: Liste des transactions pour une commande
-    #     order_id: ID de la commande pour le logging
-    
-    # Returns:
-    #     Dict contenant les résultats de validation
-    # """
-    # # Agrégation par account_type et status
-    # totals = {}
-    # status_breakdown = {}
-    
-    # for tx in transactions:
-    #     account_type = tx.get("account_type")
-    #     amount = tx.get("amount", 0)
-    #     status = tx.get("status", "unknown")
-    #     tx_type = tx.get("type", "unknown")
-        
-    #     # Pour les paiements, ne prendre que ceux qui sont finalisés avec succès
-    #     # Exclure les authorizations (qui sont suivies de captures)
-    #     if account_type == "Payments" and (status != "success" or tx_type == "authorization"):
-    #         continue
-        
-    #     # Agrégation totale par account_type
-    #     if account_type not in totals:
-    #         totals[account_type] = 0
-    #     totals[account_type] += amount
-        
-    #     # Breakdown par status et type
-    #     key = f"{account_type}_{status}"
-    #     if key not in status_breakdown:
-    #         status_breakdown[key] = {"amount": 0, "count": 0, "types": set()}
-    #     status_breakdown[key]["amount"] += amount
-    #     status_breakdown[key]["count"] += 1
-    #     status_breakdown[key]["types"].add(tx_type)
-    
-    # # Calculs de base
-    # sales = totals.get("Sales", 0)
-    # shipping = totals.get("Shipping", 0) 
-    # duties = totals.get("Duties", 0)
-    # payments = totals.get("Payments", 0)
-    # taxes = totals.get("Taxes", 0)
-    # refunds = totals.get("Refunds", 0)
-    # returns = totals.get("Returns", 0)
-    # discounts = totals.get("Discounts", 0)
-    # gift_cards = totals.get("Gift Cards", 0)
-    
-    # # Détection du type de commande et calcul dynamique des formules
-    # order_type = "unknown"
-    # validation_rules = []
-    # expected_payment = 0
-    
-    # # 1. Commandes avec remboursements : Payment + Refunds = Sales + Shipping + Duties + Taxes
-    # if abs(refunds) > 0:
-    #     order_type = "with_refunds"
-    #     # Test de plusieurs formules avec refunds
-    #     formulas_with_refunds = [
-    #         ("Payment + Refunds = Sales + Shipping + Duties", sales + shipping + duties),
-    #         ("Payment + Refunds = Sales + Shipping + Duties + Taxes", sales + shipping + duties + taxes),
-    #         ("Payment + Refunds = Sales + Taxes", sales + taxes),
-    #         ("Payment + Refunds = Sales", sales),
-    #         ("Payment + Refunds = 0 (full refund)", 0),
-    #     ]
-        
-    #     payment_plus_refunds = payments + refunds  # refunds est négatif
-        
-    #     best_diff = float('inf')
-    #     best_formula = "Payment + Refunds = Sales + Shipping + Duties"
-    #     best_expected = sales + shipping + duties
-        
-    #     for formula_name, expected in formulas_with_refunds:
-    #         diff = abs(payment_plus_refunds - expected)
-    #         if diff < best_diff:
-    #             best_diff = diff
-    #             best_formula = formula_name
-    #             best_expected = expected
-        
-    #     expected_payment = best_expected - refunds  # Calcul du payment attendu
-    #     difference = abs(payments - expected_payment)
-    #     validation_rules.append(f"With refunds: {best_formula}")
-        
-    # # 2. Commande annulée avec remise totale (Payment = 0)
-    # elif payments == 0 and abs(discounts) >= sales * 0.9:
-    #     order_type = "cancelled_with_discount"
-    #     # Les remises annulent les ventes, c'est normal
-    #     expected_payment = max(0, sales + shipping + duties + discounts)
-    #     difference = abs(payments - expected_payment)
-    #     validation_rules.append("Cancelled order: Payment = max(0, Sales + Shipping + Duties + Discounts)")
-        
-    # # 3. Commande avec paiements seuls (acomptes, dépôts, paiements partiels)
-    # elif payments > 0 and sales == 0 and shipping == 0 and duties == 0:
-    #     order_type = "deposit_payment"
-    #     # Ce sont des acomptes, dépôts ou paiements partiels - c'est normal
-    #     expected_payment = payments  # Accepter tel quel
-    #     difference = 0
-    #     validation_rules.append("Deposit/Advance payment: Payment without associated sales (normal)")
-        
-    # # 4. Commande partiellement payée avec remises importantes
-    # elif abs(discounts) > sales * 0.5:
-    #     order_type = "heavy_discount"
-    #     # Test des formules possibles pour les remises importantes (avec returns si présents)
-    #     formulas = [
-    #         ("Basic", sales + shipping + duties + discounts),
-    #         ("With Taxes", sales + shipping + duties + discounts + taxes),
-    #         ("With Returns", sales + shipping + duties + discounts + returns),
-    #         ("With Taxes and Returns", sales + shipping + duties + discounts + taxes + returns),
-    #         ("Sales + Discounts + Taxes + Returns", sales + discounts + taxes + returns),
-    #     ]
-        
-    #     best_diff = float('inf')
-    #     best_formula = "Basic"
-    #     best_expected = sales + shipping + duties + discounts
-        
-    #     for formula_name, expected in formulas:
-    #         diff = abs(payments - expected)
-    #         if diff < best_diff:
-    #             best_diff = diff
-    #             best_formula = formula_name
-    #             best_expected = expected
-        
-    #     expected_payment = best_expected
-    #     difference = best_diff
-    #     validation_rules.append(f"Heavy discount: Payment = {best_formula}")
-        
-    # # 5. Commandes avec taxes : détection automatique si taxes incluses ou séparées
-    # elif abs(taxes) > 0:
-    #     # Test des deux formules possibles
-    #     separate_taxes_formula = sales + shipping + duties  # Taxes séparées
-    #     included_taxes_formula = sales + shipping + duties + taxes  # Taxes incluses
-        
-    #     diff_separate = abs(payments - separate_taxes_formula)
-    #     diff_included = abs(payments - included_taxes_formula)
-        
-    #     # Choisit la formule qui donne la plus petite différence
-    #     if diff_separate <= diff_included:
-    #         order_type = "normal_with_taxes_separate"
-    #         expected_payment = separate_taxes_formula
-    #         difference = diff_separate
-    #         validation_rules.append("Normal with taxes separate: Payment = Sales + Shipping + Duties (taxes separate)")
-    #     else:
-    #         order_type = "normal_with_taxes_included"
-    #         expected_payment = included_taxes_formula
-    #         difference = diff_included
-    #         validation_rules.append("Normal with taxes included: Payment = Sales + Shipping + Duties + Taxes")
-        
-    # # 6. Commande sans taxes
-    # elif abs(taxes) == 0:
-    #     order_type = "normal"
-    #     # Payment = Sales + Shipping + Duties
-    #     expected_payment = sales + shipping + duties
-    #     difference = abs(payments - expected_payment)
-    #     validation_rules.append("Normal order: Payment = Sales + Shipping + Duties")
-        
-    # # 7. Cas particuliers avec paiements anormalement élevés
-    # elif payments > (sales + shipping + duties + taxes) * 1.5:
-    #     order_type = "anomalous_payment"
-    #     # Teste plusieurs formules pour trouver la meilleure
-    #     formulas = [
-    #         ("Basic", sales + shipping + duties),
-    #         ("With Taxes", sales + shipping + duties + taxes),
-    #         ("With Discounts", sales + shipping + duties + discounts),
-    #         ("Complete", sales + shipping + duties + taxes + discounts),
-    #         ("Full Payment", payments),
-    #     ]
-        
-    #     best_diff = float('inf')
-    #     best_formula = "Unknown"
-    #     best_expected = payments
-        
-    #     for formula_name, expected in formulas:
-    #         diff = abs(payments - expected)
-    #         if diff < best_diff:
-    #             best_diff = diff
-    #             best_formula = formula_name
-    #             best_expected = expected
-                
-    #     expected_payment = best_expected
-    #     difference = best_diff
-    #     validation_rules.append(f"Anomalous payment detected, best match: {best_formula}")
-        
-    # # 8. Cas par défaut
-    # else:
-    #     order_type = "unknown"
-    #     # Teste les formules de base pour trouver la meilleure
-    #     formulas = [
-    #         ("Basic", sales + shipping + duties),
-    #         ("With Taxes", sales + shipping + duties + taxes),
-    #         ("With Discounts", sales + shipping + duties + discounts),
-    #     ]
-        
-    #     best_diff = float('inf')
-    #     best_formula = "Basic"
-    #     best_expected = sales + shipping + duties
-        
-    #     for formula_name, expected in formulas:
-    #         diff = abs(payments - expected)
-    #         if diff < best_diff:
-    #             best_diff = diff
-    #             best_formula = formula_name
-    #             best_expected = expected
-        
-    #     expected_payment = best_expected
-    #     difference = best_diff
-    #     validation_rules.append(f"Unknown pattern: best match is {best_formula}")
-    
-    # # Tolérance d'erreur ajustée selon le type de commande et la différence observée
-    # tolerance_map = {
-    #     "normal": 0.01,
-    #     "normal_with_taxes_separate": 0.01,
-    #     "normal_with_taxes_included": 0.01,
-    #     "heavy_discount": 0.01,
-    #     "cancelled_with_discount": 0.01,
-    #     "with_refunds": 0.01,
-    #     "deposit_payment": 0,  # Acomptes/dépôts : tolérance nulle car expected = actual
-    #     "anomalous_payment": 0.02,
-    #     "unknown": 0.01
-    # }
-    
-    # tolerance = tolerance_map.get(order_type, 0.01)
-    # is_valid = difference <= tolerance
-    
-    # validation_result = {
-    #     "order_id": order_id,
-    #     "is_valid": is_valid,
-    #     "order_type": order_type,
-    #     "difference": difference,
-    #     "tolerance": tolerance,
-    #     "validation_rules": validation_rules,
-    #     "amounts": {
-    #         "sales": sales,
-    #         "shipping": shipping,
-    #         "duties": duties,
-    #         "payments": payments,
-    #         "taxes": taxes,
-    #         "refunds": refunds,
-    #         "returns": returns,
-    #         "discounts": discounts,
-    #         "gift_cards": gift_cards
-    #     },
-    #     "expected_payment": expected_payment,
-    #     "totals_by_account": totals,
-    #     "status_breakdown": {k: v for k, v in status_breakdown.items() if v["amount"] != 0}
-    # }
-    
-    # if not is_valid:
-    #     print(f"⚠️  VALIDATION ÉCHOUÉ pour la commande {order_id} (Type: {order_type}):")
-    #     print(f"   Expected Payment: {expected_payment:.2f}")
-    #     print(f"   Actual Payment: {payments:.2f}")
-    #     print(f"   Difference: {difference:.2f} (tolérance: {tolerance:.2f})")
-    #     print(f"   Rules: {', '.join(validation_rules)}")
-    #     print(f"   Totaux: {dict(list(totals.items())[:5])}...")  # Limite l'affichage
-    # else:
-    #     print(f"✅ VALIDATION RÉUSSIE pour la commande {order_id} (Type: {order_type}, différence: {difference:.4f})")
-    
-    # return validation_result
-
-
 # ---------------------------------------------------------------------------
 # 2. Extraction fine des remboursements (inchangé + payment_method_name)
 # ---------------------------------------------------------------------------
@@ -517,6 +250,8 @@ def get_refund_details(
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,  # Réutilise le même orders_details_id
                     "quantity": refund_quantity,
+                    "exchange_rate": exchange_rate,
+                    "shop_currency": shop_currency,
                 }
             )
         if taxes_included:
@@ -541,6 +276,8 @@ def get_refund_details(
                 "payment_method_name": payment_method_name,
                 "orders_details_id": orders_details_id,
                 "quantity": refund_quantity,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             }
         )
 
@@ -596,6 +333,8 @@ def extract_duties_transactions(order: Dict[str, Any], order_id: str, client_id:
                 "payment_method_name": payment_method_name,
                 "orders_details_id": None,
                 "quantity": 1,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             })
     
     # Duties au niveau des line items
@@ -635,6 +374,8 @@ def extract_duties_transactions(order: Dict[str, Any], order_id: str, client_id:
                         "payment_method_name": payment_method_name,
                         "orders_details_id": orders_details_id,
                         "quantity": 1,
+                        "exchange_rate": exchange_rate,
+                        "shop_currency": shop_currency,
                     })
     
     return duties_transactions
@@ -702,6 +443,8 @@ def extract_shipping_transactions(order: Dict[str, Any], order_id: str, client_i
                     "payment_method_name": payment_method_name,
                     "orders_details_id": None,
                     "quantity": 1,
+                    "exchange_rate": exchange_rate,
+                    "shop_currency": shop_currency,
                 })
     
         if local_amount > 0:
@@ -727,6 +470,8 @@ def extract_shipping_transactions(order: Dict[str, Any], order_id: str, client_i
                 "payment_method_name": payment_method_name,
                 "orders_details_id": None,
                 "quantity": 1,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             })
     return shipping_transactions
 
@@ -765,6 +510,8 @@ def extract_gift_card_transactions(order: Dict[str, Any], order_id: str, client_
                 "payment_method_name": "gift_card",
                 "orders_details_id": None,
                 "quantity": 1,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             })
     
     return gift_card_transactions
@@ -816,6 +563,8 @@ def extract_tips_transactions(order: Dict[str, Any], order_id: str, client_id: s
                 "payment_method_name": payment_method_name,
                 "orders_details_id": None,
                 "quantity": 1,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             })
     
     return tips_transactions
@@ -957,6 +706,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "payment_method_name": payment_method_name,
                         "orders_details_id": orders_details_id,
                         "quantity": quantity,
+                        "exchange_rate": exchange_rate,
+                        "shop_currency": shop_currency,
                     }
                 )
 
@@ -998,6 +749,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "payment_method_name": payment_method_name,
                         "orders_details_id": orders_details_id,
                         "quantity": quantity,
+                        "exchange_rate": exchange_rate,
+                        "shop_currency": shop_currency,
                     }
                 )
             # Multiplier par la quantité pour obtenir le montant total
@@ -1029,6 +782,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,
                     "quantity": quantity,
+                    "exchange_rate": exchange_rate,
+                    "shop_currency": shop_currency,
                 }
             )
 
@@ -1103,6 +858,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,
                     "quantity": quantity,
+                    "exchange_rate": exchange_rate,
+                    "shop_currency": shop_currency,
                 }
             )
 
@@ -1142,6 +899,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "payment_method_name": payment_method_name,
                     "orders_details_id": orders_details_id,
                     "quantity": quantity,
+                    "exchange_rate": exchange_rate,
+                    "shop_currency": shop_currency,
                 }
             )
 
@@ -1175,6 +934,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "payment_method_name": payment_method_name,
                 "orders_details_id": orders_details_id,
                 "quantity": quantity,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             }
         )
     # ------------------------------------------------------------------ #
@@ -1242,6 +1003,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 ),
                 "orders_details_id": None,  # Les transactions financières globales n'ont pas d'orders_details_id spécifique
                 "quantity": 1,  # Quantité par défaut pour les transactions financières globales
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
             }
         )
 
@@ -1359,8 +1122,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
             shop_amount, amount_currency, transaction_currency, location_id, source_name, status,
-            product_id, variant_id, payment_method_name, orders_details_id, quantity
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
@@ -1377,6 +1140,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             payment_method_name = %s,
             orders_details_id = %s,
             quantity = %s,
+            exchange_rate = %s,
+            shop_currency = %s,
             updated_at_timestamp = CURRENT_TIMESTAMP
         WHERE id = %s
     """
@@ -1419,6 +1184,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("payment_method_name"),
                             tx.get("orders_details_id"),
                             tx.get("quantity", 1),
+                            tx.get("exchange_rate"),
+                            tx.get("shop_currency"),
                             existing[0],
                         ),
                     )
@@ -1443,6 +1210,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("payment_method_name"),
                             tx.get("orders_details_id"),
                             tx.get("quantity", 1),
+                            tx.get("exchange_rate"),
+                            tx.get("shop_currency"),
                         ),
                     )
                     stats["inserted"] += 1
