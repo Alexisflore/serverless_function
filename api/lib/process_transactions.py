@@ -392,6 +392,10 @@ def extract_shipping_transactions(order: Dict[str, Any], order_id: str, client_i
     # Frais de livraison principaux
     shipping_lines = order.get("shipping_lines", [])
     for shipping_line in shipping_lines:
+        # Initialiser les variables de taxes pour chaque shipping line
+        total_tax_amount = 0
+        total_tax_amount_currency = 0
+        
         # Utilise presentment_money si disponible, sinon shop_money
         price_set = shipping_line.get("price_set", {})
         presentment_money = price_set.get("presentment_money", {})
@@ -408,8 +412,6 @@ def extract_shipping_transactions(order: Dict[str, Any], order_id: str, client_i
         # Taxes sur les frais de livraison - classées comme "Taxes" pour cohérence avec Shopify
         for tax_line in shipping_line.get("tax_lines", []):
             # Utilise presentment_money si disponible pour les taxes aussi
-            total_tax_amount = 0
-            total_tax_amount_currency = 0
             tax_price_set = tax_line.get("price_set", {})
             tax_presentment = tax_price_set.get("presentment_money", {})
             tax_shop = tax_price_set.get("shop_money", {})
@@ -655,6 +657,10 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             line_item_key = (product_id, variant_id)
             processed_line_items.add(line_item_key)
             
+            # Initialiser les variables de taxes pour chaque line item
+            total_tax_amount = 0
+            total_tax_amount_currency = 0
+            
             # Récupération de l'orders_details_id pour ce line_item
             orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
 
@@ -717,8 +723,6 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 tax_price_set = tax.get("price_set", {})
                 tax_presentment = tax_price_set.get("presentment_money", {})
                 tax_shop = tax_price_set.get("shop_money", {})
-                total_tax_amount = 0
-                total_tax_amount_currency = 0
                 
                 if tax_presentment and tax_presentment.get("amount"):
                     tax_local_amount = float(tax_presentment.get("amount", 0))
@@ -807,6 +811,10 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             continue
             
         quantity = int(li.get("quantity", 1))
+        
+        # Initialiser les variables de taxes pour chaque line item
+        total_tax_amount = 0
+        total_tax_amount_currency = 0
         
         # Récupération de l'orders_details_id pour ce line_item
         orders_details_id = get_orders_details_id(order_id, product_id, variant_id)

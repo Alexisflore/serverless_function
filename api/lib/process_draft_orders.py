@@ -380,10 +380,61 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
 # 5. Fonction principale de récupération et traitement
 # ---------------------------------------------------------------------------
 
-def get_drafts_since_date(last_processed_date: datetime) -> List[Dict[str, Any]]:
+def get_drafts_between_dates(start_date, end_date) -> List[Dict[str, Any]]:
+    """
+    Retrieves all draft orders updated between the given dates
+    Args:
+        start_date: start date (datetime object or ISO string)
+        end_date: end date (datetime object or ISO string)
+    """
+    # Convert string to datetime if necessary
+    if isinstance(start_date, str):
+        try:
+            start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Try without timezone info
+            start_date = datetime.fromisoformat(start_date)
+    
+    if isinstance(end_date, str):
+        try:
+            end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Try without timezone info
+            end_date = datetime.fromisoformat(end_date)
+    
+    print(f"Récupération des draft orders entre {start_date} et {end_date}")
+    
+    # Récupère tous les draft orders entre les dates
+    draft_orders = get_draft_orders_between_dates(start_date, end_date)
+    
+    all_transactions = []
+    
+    # Process each draft order
+    print(f"Traitement de {len(draft_orders)} draft orders...")
+    for i, draft in enumerate(draft_orders):
+        if i % 10 == 0 and i > 0:
+            print(f"Progression: {i}/{len(draft_orders)} draft orders traités")
+        
+        draft_transactions = process_draft_order(draft)
+        all_transactions.extend(draft_transactions)
+    
+    print(f"Total des transactions générées: {len(all_transactions)}")
+    return all_transactions
+
+def get_drafts_since_date(last_processed_date) -> List[Dict[str, Any]]:
     """
     Retrieves all draft orders created or completed since the given date
+    Args:
+        last_processed_date: datetime object or ISO string
     """
+    # Convert string to datetime if necessary
+    if isinstance(last_processed_date, str):
+        try:
+            last_processed_date = datetime.fromisoformat(last_processed_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Try without timezone info
+            last_processed_date = datetime.fromisoformat(last_processed_date)
+    
     print(f"Récupération des draft orders depuis: {last_processed_date}")
     
     # Récupère tous les draft orders depuis la date

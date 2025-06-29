@@ -22,8 +22,8 @@ def get_dates_for_year(year=2025):
     Generator function that yields date pairs for each day of the specified year
     Each pair consists of (start_date, end_date) for a single day
     """
-    start_date = datetime(year, 6, 13)
-    end_date = datetime(year, 6, 14)
+    start_date = datetime(year, 6, 28)
+    end_date = datetime(year, 6, 30)
 
     current = start_date
     while current < end_date:
@@ -79,76 +79,76 @@ def main():
 
         # Process the day's orders using the new process_daily_data function
         day_result = process_daily_data(start_date, end_date)
-        overall_stats["details_by_day"].append(day_result)
+        # overall_stats["details_by_day"].append(day_result)
 
-        # Update overall statistics
-        overall_stats["days_processed"] += 1
+        # # Update overall statistics
+        # overall_stats["days_processed"] += 1
 
-        # Check if there were orders
-        if "Aucune commande" not in day_result.get("message", ""):
-            overall_stats["days_with_orders"] += 1
+        # # Check if there were orders
+        # if "Aucune commande" not in day_result.get("message", ""):
+        #     overall_stats["days_with_orders"] += 1
             
-            # Extract orders processed from the message
-            try:
-                orders_count = int(day_result.get("message", "0").split()[0])
-                overall_stats["total_orders_processed"] += orders_count
-            except (ValueError, IndexError):
-                pass
+        #     # Extract orders processed from the message
+        #     try:
+        #         orders_count = int(day_result.get("message", "0").split()[0])
+        #         overall_stats["total_orders_processed"] += orders_count
+        #     except (ValueError, IndexError):
+        #         pass
 
-            # Extract order details if available
-            if "details" in day_result:
-                # Try to parse the details string to extract numbers
-                details = day_result["details"]
-                try:
-                    inserted = int(details.split("insérées: ")[1].split(",")[0])
-                    updated = int(details.split("mises à jour: ")[1].split(",")[0])
-                    skipped = int(details.split("ignorées: ")[1].split(",")[0])
+        #     # Extract order details if available
+        #     if "details" in day_result:
+        #         # Try to parse the details string to extract numbers
+        #         details = day_result["details"]
+        #         try:
+        #             inserted = int(details.split("insérées: ")[1].split(",")[0])
+        #             updated = int(details.split("mises à jour: ")[1].split(",")[0])
+        #             skipped = int(details.split("ignorées: ")[1].split(",")[0])
 
-                    overall_stats["total_orders_inserted"] += inserted
-                    overall_stats["total_orders_updated"] += updated
-                    overall_stats["total_orders_skipped"] += skipped
-                except (IndexError, ValueError):
-                    # If we can't parse the details, just continue
-                    pass
+        #             overall_stats["total_orders_inserted"] += inserted
+        #             overall_stats["total_orders_updated"] += updated
+        #             overall_stats["total_orders_skipped"] += skipped
+        #         except (IndexError, ValueError):
+        #             # If we can't parse the details, just continue
+        #             pass
                     
-            # Extract transaction counts if available
-            if "transactions_processed" in day_result:
-                try:
-                    trans_count = int(day_result["transactions_processed"].split()[0])
-                    overall_stats["total_transactions_processed"] += trans_count
-                except (ValueError, IndexError):
-                    pass
+        #     # Extract transaction counts if available
+        #     if "transactions_processed" in day_result:
+        #         try:
+        #             trans_count = int(day_result["transactions_processed"].split()[0])
+        #             overall_stats["total_transactions_processed"] += trans_count
+        #         except (ValueError, IndexError):
+        #             pass
 
-        if not day_result.get("success", False):
-            overall_stats["days_with_errors"] += 1
+        # if not day_result.get("success", False):
+        #     overall_stats["days_with_errors"] += 1
 
     # Calculate duration
     end_time = datetime.now()
-    duration = end_time - start_time
-    overall_stats["duration_seconds"] = duration.total_seconds()
-    overall_stats["duration_formatted"] = str(duration)
+    # duration = end_time - start_time
+    # overall_stats["duration_seconds"] = duration.total_seconds()
+    # overall_stats["duration_formatted"] = str(duration)
 
     # Print summary
-    print("\n" + "="*50)
-    print(f"IMPORT SUMMARY FOR YEAR {year}")
-    print("="*50)
-    print(f"Total days processed: {overall_stats['days_processed']}/365")
-    print(f"Days with orders: {overall_stats['days_with_orders']}")
-    print(f"Days with errors: {overall_stats['days_with_errors']}")
-    print(f"Total orders processed: {overall_stats['total_orders_processed']}")
-    print(f"Orders inserted: {overall_stats['total_orders_inserted']}")
-    print(f"Orders updated: {overall_stats['total_orders_updated']}")
-    print(f"Orders skipped: {overall_stats['total_orders_skipped']}")
-    print(f"Total transactions processed: {overall_stats['total_transactions_processed']}")
-    print(f"Total duration: {overall_stats['duration_formatted']}")
+    # print("\n" + "="*50)
+    # print(f"IMPORT SUMMARY FOR YEAR {year}")
+    # print("="*50)
+    # print(f"Total days processed: {overall_stats['days_processed']}/365")
+    # print(f"Days with orders: {overall_stats['days_with_orders']}")
+    # print(f"Days with errors: {overall_stats['days_with_errors']}")
+    # print(f"Total orders processed: {overall_stats['total_orders_processed']}")
+    # print(f"Orders inserted: {overall_stats['total_orders_inserted']}")
+    # print(f"Orders updated: {overall_stats['total_orders_updated']}")
+    # print(f"Orders skipped: {overall_stats['total_orders_skipped']}")
+    # print(f"Total transactions processed: {overall_stats['total_transactions_processed']}")
+    # print(f"Total duration: {overall_stats['duration_formatted']}")
 
-    # Save results to file
-    timestamp = start_time.strftime('%Y%m%d_%H%M%S')
-    results_file = f"test_results_{year}_daily_orders_import_{timestamp}.json"
-    with open(results_file, 'w') as f:
-        json.dump(overall_stats, f, indent=2)
+    # # Save results to file
+    # timestamp = start_time.strftime('%Y%m%d_%H%M%S')
+    # results_file = f"test_results_{year}_daily_orders_import_{timestamp}.json"
+    # with open(results_file, 'w') as f:
+    #     json.dump(overall_stats, f, indent=2)
 
-    print(f"\nDetailed results saved to {results_file}")
+    # print(f"\nDetailed results saved to {results_file}")
 
 if __name__ == "__main__":
     main()

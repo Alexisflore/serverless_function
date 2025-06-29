@@ -32,12 +32,13 @@ def _pg_connect():
         )
     return psycopg2.connect(db_url)
 
-def get_latest_product_date() -> Optional[str]:
+def get_latest_product_update_date() -> Optional[str]:
     """
-    Récupère la date de création du produit le plus récent en base
+    Récupère la date de mise à jour la plus récente en base
+    Utilise le GREATEST entre updated_at et imported_at pour couvrir tous les cas
     
     Returns:
-        Optional[str]: Date ISO de création du produit le plus récent ou None
+        Optional[str]: Date ISO de mise à jour la plus récente ou None
     """
     try:
         conn = _pg_connect()
@@ -58,20 +59,24 @@ def get_latest_product_date() -> Optional[str]:
             print("📋 Table 'products' n'existe pas encore")
             return None
         
-        # Récupérer la date de création la plus récente
+        # Récupérer la date de mise à jour la plus récente
         cur.execute("""
-            SELECT MAX(created_at) FROM products 
-            WHERE created_at IS NOT NULL
+            SELECT GREATEST(
+                COALESCE(MAX(updated_at), '1970-01-01'::timestamp),
+                COALESCE(MAX(imported_at), '1970-01-01'::timestamp)
+            ) as latest_date
+            FROM products 
+            WHERE updated_at IS NOT NULL OR imported_at IS NOT NULL
         """)
         
         result = cur.fetchone()
         latest_date = result[0] if result else None
         
-        if latest_date:
+        if latest_date and latest_date.year > 1970:
             # Convertir en format ISO string
             return latest_date.isoformat()
         else:
-            print("📋 Aucun produit avec date de création trouvé en base")
+            print("📋 Aucune date de mise à jour trouvée en base")
             return None
             
     except Exception as e:
@@ -83,15 +88,84 @@ def get_latest_product_date() -> Optional[str]:
         if 'conn' in locals():
             conn.close()
 
-def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]:
+def get_inventory_items_cogs(inventory_item_ids: List[int]) -> Dict[int, Dict[str, Any]]:
     """
-    Récupère les produits Shopify créés après une date donnée
+    Récupère les COGS depuis les inventory items
     
     Args:
-        since_date: Date ISO à partir de laquelle récupérer les produits
+        inventory_item_ids: Liste des IDs des inventory items
         
     Returns:
-        Dict contenant products et variants
+        Dict mapping inventory_item_id -> inventory_item_data
+    """
+    load_dotenv()
+    
+    store_domain = os.getenv("SHOPIFY_STORE_DOMAIN")
+    api_version = os.getenv("SHOPIFY_API_VERSION", "2024-10")
+    headers = _shopify_headers()
+    
+    inventory_items_data = {}
+    total_items = len(inventory_item_ids)
+    
+    if total_items == 0:
+        return inventory_items_data
+    
+    print(f"💰 Récupération des COGS pour {total_items} inventory items...")
+    
+    # Traitement par batch pour éviter de surcharger l'API
+    batch_size = 50  # Limite raisonnable pour éviter les timeout
+    
+    for i in range(0, total_items, batch_size):
+        batch_ids = inventory_item_ids[i:i+batch_size]
+        batch_num = (i // batch_size) + 1
+        total_batches = (total_items + batch_size - 1) // batch_size
+        
+        print(f"📦 Batch {batch_num}/{total_batches}: Récupération de {len(batch_ids)} inventory items...")
+        
+        for inventory_item_id in batch_ids:
+            try:
+                url = f"https://{store_domain}/admin/api/{api_version}/inventory_items/{inventory_item_id}.json"
+                response = requests.get(url, headers=headers)
+                
+                if response.status_code == 200:
+                    inventory_item = response.json().get('inventory_item', {})
+                    inventory_items_data[inventory_item_id] = inventory_item
+                elif response.status_code == 429:  # Rate limit
+                    print(f"⚠️ Rate limit atteint, pause de 2 secondes...")
+                    import time
+                    time.sleep(2)
+                    # Retry une fois
+                    response = requests.get(url, headers=headers)
+                    if response.status_code == 200:
+                        inventory_item = response.json().get('inventory_item', {})
+                        inventory_items_data[inventory_item_id] = inventory_item
+                else:
+                    print(f"❌ Erreur pour inventory item {inventory_item_id}: {response.status_code}")
+                    
+            except Exception as e:
+                print(f"❌ Erreur pour inventory item {inventory_item_id}: {e}")
+        
+        # Pause entre les batches pour respecter les limites d'API
+        if batch_num < total_batches:
+            import time
+            time.sleep(0.5)
+    
+    # Éviter la division par zéro
+    percentage = (len(inventory_items_data)/total_items*100) if total_items > 0 else 0
+    print(f"✅ {len(inventory_items_data)}/{total_items} inventory items récupérés ({percentage:.1f}%)")
+    
+    return inventory_items_data
+
+def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Récupère les produits Shopify mis à jour après une date donnée AVEC les COGS
+    Utilise updated_at_min pour capturer les nouveaux produits ET les produits modifiés
+    
+    Args:
+        since_date: Date ISO à partir de laquelle récupérer les produits (utilise updated_at_min)
+        
+    Returns:
+        Dict contenant products, variants et inventory_items avec COGS
     """
     load_dotenv()
     
@@ -102,9 +176,9 @@ def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]
         raise ValueError("SHOPIFY_STORE_DOMAIN non défini dans les variables d'environnement")
     
     if since_date:
-        print(f"🔍 Récupération des produits créés après {since_date}...")
+        print(f"🔍 Récupération des produits mis à jour après {since_date} (nouveaux + modifiés, avec COGS)...")
     else:
-        print(f"🔍 Récupération de tous les produits (première synchronisation)...")
+        print(f"🔍 Récupération de tous les produits (première synchronisation, avec COGS)...")
     
     # Construire l'URL avec filtre de date si nécessaire
     url = f"https://{store_domain}/admin/api/{api_version}/products.json"
@@ -114,9 +188,9 @@ def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]
         "fields": "id,title,handle,status,product_type,vendor,tags,created_at,updated_at,variants,options"
     }
     
-    # Ajouter le filtre de date si spécifié
+    # Ajouter le filtre de date si spécifié (utilise updated_at_min)
     if since_date:
-        params["created_at_min"] = since_date
+        params["updated_at_min"] = since_date
     
     all_products = []
     page = 1
@@ -162,14 +236,17 @@ def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]
             print(f"❌ Erreur lors de la récupération: {e}")
             break
     
-    # Extraire les variants
+    # Extraire les variants et collecter les inventory_item_ids
     variants_data = []
+    inventory_item_ids = set()
     
     print(f"\n🔄 Extraction des variants depuis {len(all_products):,} produits...")
     
     for product in all_products:
         for variant in product.get('variants', []):
             inventory_item_id = variant.get('inventory_item_id')
+            if inventory_item_id:
+                inventory_item_ids.add(inventory_item_id)
             
             # Extraire les options (color, size) intelligemment
             options = product.get('options', [])
@@ -205,19 +282,61 @@ def get_new_shopify_products(since_date: Optional[str] = None) -> Dict[str, Any]
                 'tags': product.get('tags'),
                 'created_at': variant.get('created_at'),
                 'updated_at': variant.get('updated_at'),
-                'cogs': None
+                'cogs': None  # Sera rempli plus tard
             })
     
     print(f"✅ {len(variants_data)} variants extraits")
+    print(f"🔍 {len(inventory_item_ids)} inventory items uniques à récupérer...")
+    
+    # Récupérer les COGS depuis les inventory items
+    inventory_items_data = get_inventory_items_cogs(list(inventory_item_ids))
+    
+    # Mapper les COGS avec les variants (TOUS les variants seront gardés)
+    print(f"🔗 Mapping des COGS avec les variants...")
+    cogs_found = 0
+    cogs_zero = 0
+    cogs_missing = 0
+    
+    for variant in variants_data:
+        inventory_item_id = variant.get('inventory_item_id')
+        if inventory_item_id and inventory_item_id in inventory_items_data:
+            cogs = inventory_items_data[inventory_item_id].get('cost')
+            if cogs is not None:
+                if float(cogs) > 0:
+                    variant['cogs'] = float(cogs)
+                    cogs_found += 1
+                else:
+                    # COGS = 0, on le garde quand même
+                    variant['cogs'] = 0.0
+                    cogs_zero += 1
+            else:
+                # Pas de COGS dans l'inventory item, on garde le variant avec COGS = None
+                cogs_missing += 1
+        else:
+            # Pas d'inventory item trouvé, on garde le variant avec COGS = None
+            cogs_missing += 1
+    
+    # Statistiques détaillées
+    total_variants = len(variants_data)
+    print(f"✅ Mapping terminé pour {total_variants} variants:")
+    
+    if total_variants > 0:
+        print(f"   • COGS > 0: {cogs_found} variants ({cogs_found/total_variants*100:.1f}%)")
+        print(f"   • COGS = 0: {cogs_zero} variants ({cogs_zero/total_variants*100:.1f}%)")
+        print(f"   • Sans COGS: {cogs_missing} variants ({cogs_missing/total_variants*100:.1f}%)")
+        print(f"   🎯 TOUS les {total_variants} variants seront insérés en base")
+    else:
+        print("   ℹ️  Aucun variant à traiter")
     
     return {
         'products': all_products,
-        'variants': variants_data
+        'variants': variants_data,
+        'inventory_items': inventory_items_data
     }
 
 def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]:
     """
-    Insère les nouveaux variants dans la table products
+    Insère/met à jour les variants dans la table products
     
     Returns:
         Dict avec les statistiques d'insertion
@@ -230,6 +349,7 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
         cur = conn.cursor()
         
         print(f"\n📥 Insertion/mise à jour de {len(variants_data)} variants...")
+        print("🎯 Note: TOUS les variants seront insérés, même ceux sans COGS")
         
         # Requête d'insertion avec UPSERT
         insert_query = """
@@ -312,7 +432,6 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
         # Exécuter l'insertion par batch
         batch_size = 100
         inserted = 0
-        updated = 0
         
         for i in range(0, len(insert_data), batch_size):
             batch = insert_data[i:i+batch_size]
@@ -322,15 +441,29 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
         
         conn.commit()
         
-        # Statistiques finales
+        # Statistiques finales détaillées
         cur.execute("SELECT COUNT(*) FROM products")
         total_count = cur.fetchone()[0]
         
-        print(f"\n📊 Résultats:")
-        print(f"   • Variants traités: {len(variants_data)}")
-        print(f"   • Total en base: {total_count:,}")
+        # Compter les variants avec/sans COGS insérés
+        variants_with_cogs = len([v for v in variants_data if v.get('cogs') is not None])
+        variants_without_cogs = len(variants_data) - variants_with_cogs
         
-        return {"inserted": inserted, "updated": 0, "errors": 0, "total": total_count}
+        print(f"\n📊 Résultats d'insertion:")
+        print(f"   • Variants traités: {len(variants_data)}")
+        print(f"   • Avec COGS: {variants_with_cogs}")
+        print(f"   • Sans COGS: {variants_without_cogs}")
+        print(f"   • Total en base: {total_count:,}")
+        print(f"   ✅ Tous les variants ont été insérés, même ceux sans COGS")
+        
+        return {
+            "inserted": inserted, 
+            "updated": 0, 
+            "errors": 0, 
+            "total": total_count,
+            "with_cogs": variants_with_cogs,
+            "without_cogs": variants_without_cogs
+        }
         
     except Exception as e:
         print(f"❌ Erreur lors de l'insertion: {e}")
@@ -343,7 +476,8 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
 
 def update_products_incremental() -> Dict[str, Any]:
     """
-    Met à jour les produits de manière incrémentale
+    Met à jour les produits de manière incrémentale (nouveaux + modifiés)
+    Utilise updated_at pour capturer les deux cas
     
     Returns:
         Dict avec les résultats de la mise à jour
@@ -351,26 +485,26 @@ def update_products_incremental() -> Dict[str, Any]:
     try:
         print("🔍 Démarrage de la mise à jour incrémentale des produits...")
         
-        # 1. Récupérer la date du dernier produit
-        latest_date = get_latest_product_date()
+        # 1. Récupérer la date de la dernière mise à jour
+        latest_date = get_latest_product_update_date()
         
-        # 2. Récupérer les nouveaux produits
-        shopify_data = get_new_shopify_products(latest_date)
+        # 2. Récupérer les produits mis à jour (nouveaux + modifiés)
+        shopify_data = get_shopify_products_since(latest_date)
         variants_data = shopify_data['variants']
         
         if not variants_data:
             return {
                 "success": True,
-                "message": "Aucun nouveau produit à synchroniser",
+                "message": "Aucun produit nouveau ou modifié à synchroniser",
                 "details": {"inserted": 0, "updated": 0, "errors": 0, "total": 0}
             }
         
-        # 3. Insérer les nouveaux produits
+        # 3. Insérer/mettre à jour les produits
         result = insert_products_to_db(variants_data)
         
         return {
             "success": True,
-            "message": f"{result['inserted']} nouveaux variants synchronisés",
+            "message": f"{result['inserted']} variants synchronisés (nouveaux + modifiés)",
             "details": result
         }
         
@@ -381,3 +515,54 @@ def update_products_incremental() -> Dict[str, Any]:
             "message": f"Erreur: {str(e)}",
             "details": {"inserted": 0, "updated": 0, "errors": 1, "total": 0}
         }
+
+def update_products_full_sync() -> Dict[str, Any]:
+    """
+    Synchronisation complète (tous les produits, première fois)
+    
+    Returns:
+        Dict avec les résultats de la mise à jour
+    """
+    try:
+        print("🔍 Démarrage de la synchronisation complète...")
+        
+        # Récupérer tous les produits (sans filtre de date)
+        shopify_data = get_shopify_products_since(None)
+        variants_data = shopify_data['variants']
+        
+        if not variants_data:
+            return {
+                "success": True,
+                "message": "Aucun produit trouvé",
+                "details": {"inserted": 0, "updated": 0, "errors": 0, "total": 0}
+            }
+        
+        # Insérer/mettre à jour tous les produits
+        result = insert_products_to_db(variants_data)
+        
+        return {
+            "success": True,
+            "message": f"Synchronisation complète: {result['inserted']} variants traités",
+            "details": result
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de la synchronisation complète: {e}")
+        return {
+            "success": False,
+            "message": f"Erreur: {str(e)}",
+            "details": {"inserted": 0, "updated": 0, "errors": 1, "total": 0}
+        }
+
+# Fonctions dépréciées (maintenues pour compatibilité)
+def get_latest_product_date() -> Optional[str]:
+    """DÉPRÉCIÉ: Utilise get_latest_product_update_date() à la place"""
+    return get_latest_product_update_date()
+
+def get_new_shopify_products(since_date: Optional[str] = None, use_updated_at: bool = False) -> Dict[str, Any]:
+    """DÉPRÉCIÉ: Utilise get_shopify_products_since() à la place"""
+    return get_shopify_products_since(since_date)
+
+def update_products_with_changes() -> Dict[str, Any]:
+    """DÉPRÉCIÉ: Utilise update_products_incremental() à la place"""
+    return update_products_incremental()

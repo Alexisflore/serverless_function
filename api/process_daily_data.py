@@ -12,7 +12,7 @@ from api.lib.process_transactions import get_transactions_between_dates, process
 from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
-from api.lib.process_draft_orders import get_drafts_since_date, process_draft_orders, find_last_draft_order_date
+from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -34,7 +34,7 @@ def process_daily_data(start_date, end_date):
     }
     
     try:
-        # 0. Update products incrementally (check for new products)
+        # 0. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
         print("🛍️ Mise à jour incrémentale des produits...")
         products_result = update_products_incremental()
         print(f"📦 Produits: {products_result.get('message', 'Mis à jour')}")
@@ -44,11 +44,11 @@ def process_daily_data(start_date, end_date):
         locations_result = update_locations_incremental()
         print(f"📍 Locations: {locations_result.get('message', 'Mis à jour')}")
         
-        # 0.2. Process draft orders since last processed date
+        # 0.2. Process draft orders between the dates
         print("📝 Traitement des draft orders...")
         try:
-            # Get all draft order transactions since that date
-            draft_transactions = get_drafts_since_date(start_date)
+            # Get all draft order transactions between the dates
+            draft_transactions = get_drafts_between_dates(start_date, end_date)
             
             # Process the draft order transactions
             draft_result = process_draft_orders(draft_transactions)
@@ -82,6 +82,7 @@ def process_daily_data(start_date, end_date):
 
         day_date = start_date[:10]
         recuperer_et_enregistrer_versements_jour(day_date)
+        response_data["success"] = True
 
         # 6. Prepare response based on results
         if result.get("errors") and len(result.get("errors", [])) > 0 or result_transactions.get("errors") and len(result_transactions.get("errors", [])) > 0 or draft_result.get("errors") and len(draft_result.get("errors", [])) > 0:
@@ -98,7 +99,7 @@ def process_daily_data(start_date, end_date):
             "timestamp": datetime.now().isoformat(),
             "analyzed_period": f"From {start_date} to {end_date}",
             "transactions_processed": f"{len(transactions)} transactions traitées avec succès",
-            "products_synchronized": products_result.get('stats', {}).get('inserted', 0),
+            "products_synchronized": products_result.get('details', {}).get('inserted', 0),
             "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0),
             "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées"
         })
