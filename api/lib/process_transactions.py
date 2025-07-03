@@ -43,7 +43,7 @@ def _pg_connect():
     return psycopg2.connect(db_url)
 
 
-def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int | None) -> int | None:
+def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int | None, name: str | None) -> int | None:
     """
     Récupère l'ID orders_details correspondant à un produit/variant d'une commande.
     
@@ -51,29 +51,35 @@ def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int
         order_id: ID de la commande
         product_id: ID du produit (peut être None pour les transactions financières globales)
         variant_id: ID du variant (peut être None pour les transactions financières globales)
-        
+        name: nom du produit (peut être None pour les transactions financières globales)
     Returns:
         L'ID orders_details correspondant ou None si pas de correspondance
     """
-    if product_id is None or variant_id is None:
-        return None  # Transactions financières globales
-    
     try:
         conn = _pg_connect()
         cur = conn.cursor()
-        
-        query = """
-            SELECT _id_order_detail 
-            FROM orders_details 
-            WHERE _id_order::bigint = %s 
-              AND _id_product = %s 
-              AND variant_id = %s
-            LIMIT 1
-        """
-        
-        cur.execute(query, [int(order_id), product_id, variant_id])
+
+        if product_id is None and variant_id is None and name is not None:
+            query = """
+                SELECT _id_order_detail 
+                FROM orders_details 
+                WHERE _id_order::bigint = %s 
+                  AND name = %s
+                LIMIT 1
+            """
+            cur.execute(query, [int(order_id), name])
+        else:
+            query = """
+                SELECT _id_order_detail 
+                FROM orders_details 
+                WHERE _id_order::bigint = %s 
+                AND _id_product = %s 
+                AND variant_id = %s
+                LIMIT 1
+            """
+            cur.execute(query, [int(order_id), product_id, variant_id])
+
         result = cur.fetchone()
-        
         cur.close()
         conn.close()
         
@@ -208,7 +214,7 @@ def get_refund_details(
         line_item_location_id = refund_item.get("location_id") or location_id
 
         # 2.1 ligne article remboursée
-        orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"))
+        orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"), li.get("name"))
         refund_quantity = int(refund_item.get("quantity", 1))  # Récupération de la quantité remboursée
         
         # Conversion de devise pour les remboursements
@@ -345,7 +351,7 @@ def extract_duties_transactions(order: Dict[str, Any], order_id: str, client_id:
         for line_item in fulfillment.get("line_items", []):
             product_id = line_item.get("product_id")
             variant_id = line_item.get("variant_id")
-            orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
+            orders_details_id = get_orders_details_id(order_id, product_id, variant_id, line_item.get("name"))
             
             duties = line_item.get("duties", [])
             for duty in duties:
@@ -662,7 +668,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             total_tax_amount_currency = 0
             
             # Récupération de l'orders_details_id pour ce line_item
-            orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
+            orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
             # Utilise presentment_money si disponible, sinon shop_money
             price_set = li.get("price_set", {})
@@ -817,7 +823,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
         total_tax_amount_currency = 0
         
         # Récupération de l'orders_details_id pour ce line_item
-        orders_details_id = get_orders_details_id(order_id, product_id, variant_id)
+        orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
         # Utilise presentment_money si disponible, sinon shop_money
         price_set = li.get("price_set", {})
