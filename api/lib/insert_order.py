@@ -330,7 +330,7 @@ def insert_order(order_data):
                     
                     # Tags et market
                     "tags_list": parse_tags_to_list(order.get('tags', '')),  # tags parsés en array JSON
-                    "market": extract_market_from_tags(order.get('tags', '')),  # market extrait des tags
+                    "market": extract_market_from_tags(order.get('tags', 'US')),  # market extrait des tags
 
                     "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None
                 }
