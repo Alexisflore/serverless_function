@@ -10,6 +10,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
+from decimal import Decimal, ROUND_HALF_UP
 import time
 import requests
 import psycopg2
@@ -96,6 +97,17 @@ def _iso_to_dt(date_str: str) -> datetime:
         date_str = date_str.replace("Z", "+00:00")
     return datetime.fromisoformat(date_str)
 
+def get_exchange_rate(shop_money: Dict[str, Any], presentment_money: Dict[str, Any]) -> float:
+    """
+    Calcule le taux de change entre USD et la devise locale de la commande.
+    """
+    if presentment_money == 0:
+        return 1.0
+    elif shop_money == 0:
+        return 1.0
+    else:
+        return shop_money / presentment_money
+
 
 def calculate_exchange_rate(order: Dict[str, Any]) -> tuple[float, str, str]:
     """
@@ -173,6 +185,7 @@ def get_refund_details(
 ) -> List[Dict[str, Any]]:
     """
     Retourne une liste d'items détaillés liés au remboursement.
+    Traite à la fois les refund_line_items et les order_adjustments.
     """
     store_domain = "adam-lippes.myshopify.com"
     api_version = "2024-10"
@@ -187,82 +200,38 @@ def get_refund_details(
         return []
 
     refund = resp.json().get("refund", {})
+    items: List[Dict[str, Any]] = []
     refund_date = refund.get("created_at")
     location_id = refund.get("location_id")
-
-    items: List[Dict[str, Any]] = []
-
+    
+    # 1. Traiter les refund_line_items (remboursements d'articles spécifiques)
     for refund_item in refund.get("refund_line_items", []):
-        # Ne traiter que les articles avec restock_type = "restock"
         account_type = "Returns"
-        refund_status = refund_item.get("restock_type")
+        
+        # Récupérer le line_item (objet unique, pas une liste)
         li = refund_item.get("line_item", {})
+        amount_shop_money = float(refund_item.get("subtotal_set", {}).get("shop_money", {}).get("amount", 0))
+        amount_currency = float(refund_item.get("subtotal_set", {}).get("presentment_money", {}).get("amount", amount_shop_money))
         product_id = li.get("product_id")
-        subtotal = float(refund_item.get("subtotal", 0))
-        # Sécurisation de l'accès à la devise du remboursement
-        subtotal_set = refund_item.get("subtotal_set", {})
-        if subtotal_set and isinstance(subtotal_set, dict):
-            shop_money = subtotal_set.get("shop_money", {})
-            if shop_money and isinstance(shop_money, dict):
-                currency = shop_money.get("currency_code", "USD")
-            else:
-                currency = "USD"
-        else:
-            currency = "USD"
+        refund_status = refund_item.get("restock_type")
+        refund_quantity = int(refund_item.get("quantity", 1))
+        shop_currency = refund_item.get("subtotal_set", {}).get("shop_money", {}).get("currency_code", "USD")
+        currency = refund_item.get("subtotal_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+
+        # Calcul du taux de change réel pour ce refund_line_item
+        calculated_exchange_rate = exchange_rate
+        if amount_currency != 0 and currency != shop_currency:
+            calculated_exchange_rate = abs(amount_shop_money / amount_currency)
+        elif currency == shop_currency:
+            calculated_exchange_rate = 1.0
+        print(f"Calculated Exchange Rate: {calculated_exchange_rate}")
+        print(f"Exchange Rate: {exchange_rate}")
 
         # Récupère le location_id spécifique à ce refund_line_item, sinon utilise celui du refund global
         line_item_location_id = refund_item.get("location_id") or location_id
 
-        # 2.1 ligne article remboursée
+        # Ligne article remboursée
         orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"), li.get("name"))
-        refund_quantity = int(refund_item.get("quantity", 1))  # Récupération de la quantité remboursée
-        
-        # Conversion de devise pour les remboursements
-        amount_usd, amount_currency = apply_currency_conversion(subtotal, exchange_rate, currency, shop_currency)
-        
-        # 2.2 taxes
-        for tax in li.get("tax_lines", []):
-            tax_amount = float(tax.get("price", 0))
-            # Sécurisation de l'accès à la devise de la taxe
-            tax_price_set = tax.get("price_set", {})
-            if tax_price_set and isinstance(tax_price_set, dict):
-                tax_shop_money = tax_price_set.get("shop_money", {})
-                if tax_shop_money and isinstance(tax_shop_money, dict):
-                    tax_currency = tax_shop_money.get("currency_code", currency)
-                else:
-                    tax_currency = currency
-            else:
-                tax_currency = currency
-            
-            # Conversion de devise pour les taxes de remboursement
-            tax_amount_usd, tax_amount_currency = apply_currency_conversion(tax_amount, exchange_rate, tax_currency, shop_currency)
-            
-            items.append(
-                {
-                    "date": refund_date,
-                    "order_id": order_id,
-                    "client_id": client_id,
-                    "type": "refund_tax",
-                    "account_type": "Taxes",
-                    "transaction_description": f"{tax.get('title')} (qty: {refund_quantity})",
-                    "shop_amount": -tax_amount_usd,  # Négatif car c'est un remboursement
-                    "amount_currency": -tax_amount_currency if tax_amount_currency else None,
-                    "transaction_currency": tax_currency,
-                    "location_id": line_item_location_id,
-                    "source_name": source_name,
-                    "status": refund_status,
-                    "product_id": product_id,
-                    "variant_id": li.get("variant_id"),
-                    "payment_method_name": payment_method_name,
-                    "orders_details_id": orders_details_id,  # Réutilise le même orders_details_id
-                    "quantity": refund_quantity,
-                    "exchange_rate": exchange_rate,
-                    "shop_currency": shop_currency,
-                }
-            )
-        if taxes_included:
-            amount_usd = amount_usd - tax_amount_usd
-            amount_currency = amount_currency - tax_amount_currency
         items.append(
             {
                 "date": refund_date,
@@ -271,8 +240,8 @@ def get_refund_details(
                 "type": "refund_line_item",
                 "account_type": account_type,
                 "transaction_description": f"Return: {li.get('name')} (qty: {refund_quantity})",
-                "shop_amount": -amount_usd,  # Négatif car c'est un remboursement
-                "amount_currency": -amount_currency if amount_currency else None,
+                "shop_amount": -amount_shop_money,  # Négatif car c'est un remboursement
+                "amount_currency": -amount_currency,
                 "transaction_currency": currency,
                 "location_id": line_item_location_id,
                 "source_name": source_name,
@@ -282,11 +251,61 @@ def get_refund_details(
                 "payment_method_name": payment_method_name,
                 "orders_details_id": orders_details_id,
                 "quantity": refund_quantity,
-                "exchange_rate": exchange_rate,
+                "exchange_rate": calculated_exchange_rate,
                 "shop_currency": shop_currency,
             }
         )
 
+    # Utilisation de Decimal pour éviter les erreurs d'arrondi
+    total_shop_amount = Decimal('0.00')
+    total_amount_currency = Decimal('0.00')
+    adjustment_currency = shop_currency  # Par défaut
+    
+    for adjustment in refund.get("order_adjustments", []):
+        amount_shop_money = Decimal(str(adjustment.get("amount_set", {}).get("shop_money", {}).get("amount", 0)))
+        amount_currency = Decimal(str(adjustment.get("amount_set", {}).get("presentment_money", {}).get("amount", amount_shop_money)))
+        print(f"Adjustment - Shop: {amount_shop_money}, Currency: {amount_currency}")
+        
+        total_shop_amount += amount_shop_money
+        total_amount_currency += amount_currency
+        adjustment_currency = adjustment.get("amount_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+    
+    # Créer une seule transaction d'ajustement pour tous les order_adjustments
+    if total_shop_amount != 0:
+        # Arrondir à 2 décimales et convertir en float pour la base de données
+        final_shop_amount = float(total_shop_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        final_amount_currency = float(total_amount_currency.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        
+        # Calcul du taux de change réel pour les order_adjustments
+        calculated_adjustment_exchange_rate = exchange_rate
+        if final_amount_currency != 0 and adjustment_currency != shop_currency:
+            calculated_adjustment_exchange_rate = abs(final_shop_amount / final_amount_currency)
+        elif adjustment_currency == shop_currency:
+            calculated_adjustment_exchange_rate = 1.0
+        
+        items.append({
+            "date": refund_date,
+            "order_id": order_id,
+            "client_id": client_id,
+            "type": "refund_discrepancy",
+            "account_type": "Order Adjustment",
+            "transaction_description": "Order Adjustment",
+            "shop_amount": final_shop_amount,
+            "amount_currency": final_amount_currency,
+            "transaction_currency": adjustment_currency,
+            "location_id": location_id,
+            "source_name": source_name,
+            "status": "success",
+            "product_id": None,
+            "variant_id": None,
+            "payment_method_name": payment_method_name,
+            "orders_details_id": None,
+            "quantity": 1,
+            "exchange_rate": calculated_adjustment_exchange_rate,
+            "shop_currency": shop_currency,
+        })
+        
+        print(f"Final Order Adjustment - Shop: {final_shop_amount}, Currency: {final_amount_currency}, Exchange Rate: {calculated_adjustment_exchange_rate}")
     return items
 
 # ---------------------------------------------------------------------------
@@ -671,7 +690,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
             # Utilise presentment_money si disponible, sinon shop_money
-            price_set = li.get("price_set", {})
+            price_set = li.get("pre_tax_price_set", {})
             presentment_money = price_set.get("presentment_money", {})
             shop_money = price_set.get("shop_money", {})
             
@@ -679,7 +698,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 local_unit_amount = float(presentment_money.get("amount", 0))
                 currency = presentment_money.get("currency_code", local_currency)
             else:
-                local_unit_amount = float(li.get("price", 0))
+                local_unit_amount = float(li.get("pre_tax_price", 0))
                 currency = shop_money.get("currency_code", shop_currency)
             
 
@@ -766,10 +785,10 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             # Multiplier par la quantité pour obtenir le montant total
             local_amount = local_unit_amount * quantity
             amount_usd, amount_currency = apply_currency_conversion(local_amount, exchange_rate, currency, shop_currency)
-            if taxes_included:
-                print(f"Taxes incluses détectées - Prix original: {amount_usd}, Taxes: {total_tax_amount}, Montant HT: {amount_usd - total_tax_amount}")
-                amount_usd = amount_usd - total_tax_amount
-                amount_currency = amount_currency - total_tax_amount_currency
+            # if taxes_included:
+            #     print(f"Taxes incluses détectées - Prix original: {amount_usd}, Taxes: {total_tax_amount}, Montant HT: {amount_usd - total_tax_amount}")
+            #     amount_usd = amount_usd - total_tax_amount
+            #     amount_currency = amount_currency - total_tax_amount_currency
             total_tax_amount = 0
             total_tax_amount_currency = 0
             #  – vente brute HT
@@ -826,15 +845,14 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
         orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
         # Utilise presentment_money si disponible, sinon shop_money
-        price_set = li.get("price_set", {})
+        price_set = li.get("pre_tax_price_set", {})
         presentment_money = price_set.get("presentment_money", {})
         shop_money = price_set.get("shop_money", {})
-        
         if presentment_money and presentment_money.get("amount"):
             local_unit_amount = float(presentment_money.get("amount", 0))
             currency = presentment_money.get("currency_code", local_currency)
         else:
-            local_unit_amount = float(li.get("price", 0))
+            local_unit_amount = float(li.get("pre_tax_price", 0))
             currency = shop_money.get("currency_code", shop_currency)
         
 
@@ -921,9 +939,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
         # Multiplier par la quantité pour obtenir le montant total
         local_amount = local_unit_amount * quantity
         amount_usd, amount_currency = apply_currency_conversion(local_amount, exchange_rate, currency, shop_currency)
-        if taxes_included:
-            amount_usd = amount_usd - total_tax_amount
-            amount_currency = amount_currency - total_tax_amount_currency
+        # if taxes_included:
+        #     amount_usd = amount_usd - total_tax_amount
+        #     amount_currency = amount_currency - total_tax_amount_currency
         total_tax_amount = 0
         total_tax_amount_currency = 0
 

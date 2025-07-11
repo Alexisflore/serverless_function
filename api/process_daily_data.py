@@ -57,7 +57,7 @@ def process_daily_data(start_date, end_date):
         except Exception as e:
             print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
             draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
-        
+
         # 1. Get API data for the period
         orders = get_daily_orders(start_date, end_date)
 
