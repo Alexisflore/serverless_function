@@ -255,6 +255,34 @@ def get_refund_details(
                 "shop_currency": shop_currency,
             }
         )
+        for tax_line in li.get("tax_lines", []):
+            print(f"len(tax_line): {len(li.get('tax_lines', []))}")
+            tax_shop_amount = float(tax_line.get("price_set", {}).get("shop_money", {}).get("amount", 0))
+            tax_currency = tax_line.get("price_set", {}).get("shop_money", {}).get("currency_code", shop_currency)
+            tax_presentment_amount = float(tax_line.get("price_set", {}).get("presentment_money", {}).get("amount", 0))
+            tax_presentment_currency = tax_line.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+            taxe_line = {
+                "date": refund_date,
+                "order_id": order_id,
+                "client_id": client_id,
+                "type": "tax_line",
+                "account_type": "Taxes",
+                "transaction_description": f"Taxes: {tax_line.get('title')}",
+                "shop_amount": -tax_shop_amount,
+                "amount_currency": -tax_presentment_amount,
+                "transaction_currency": tax_presentment_currency,
+                "location_id": line_item_location_id,
+                "source_name": source_name,
+                "status": refund_status,
+                "product_id": product_id,
+                "variant_id": li.get("variant_id"),
+                "payment_method_name": payment_method_name,
+                "orders_details_id": orders_details_id,
+                "quantity": refund_quantity,
+                "exchange_rate": calculated_exchange_rate,
+                "shop_currency": tax_currency,
+            }
+            items.append(taxe_line)
 
     # Utilisation de Decimal pour éviter les erreurs d'arrondi
     total_shop_amount = Decimal('0.00')
@@ -306,6 +334,7 @@ def get_refund_details(
         })
         
         print(f"Final Order Adjustment - Shop: {final_shop_amount}, Currency: {final_amount_currency}, Exchange Rate: {calculated_adjustment_exchange_rate}")
+
     return items
 
 # ---------------------------------------------------------------------------
