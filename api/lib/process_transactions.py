@@ -142,7 +142,6 @@ def calculate_exchange_rate(order: Dict[str, Any]) -> tuple[float, str, str]:
     
     return exchange_rate, local_currency, shop_currency
 
-
 def apply_currency_conversion(local_amount: float, exchange_rate: float, local_currency: str, shop_currency: str) -> tuple[float, float | None]:
     """
     Applique la conversion de devise selon la logique découverte.
@@ -179,8 +178,6 @@ def get_refund_details(
     source_name: str,
     payment_method_name: str | None,
     exchange_rate: float = 1.0,
-    local_currency: str = "USD",
-    shop_currency: str = "USD",
     taxes_included: bool = False,
 ) -> List[Dict[str, Any]]:
     """
@@ -210,57 +207,31 @@ def get_refund_details(
         
         # Récupérer le line_item (objet unique, pas une liste)
         li = refund_item.get("line_item", {})
-        amount_shop_money = float(refund_item.get("subtotal_set", {}).get("shop_money", {}).get("amount", 0))
-        amount_currency = float(refund_item.get("subtotal_set", {}).get("presentment_money", {}).get("amount", amount_shop_money))
+        amount_shop_money = float(li.get("price_set", {}).get("shop_money", {}).get("amount", 0))
+        amount_currency = float(li.get("price_set", {}).get("presentment_money", {}).get("amount", amount_shop_money))
         product_id = li.get("product_id")
+        variant_id = li.get("variant_id")
         refund_status = refund_item.get("restock_type")
         refund_quantity = int(refund_item.get("quantity", 1))
-        shop_currency = refund_item.get("subtotal_set", {}).get("shop_money", {}).get("currency_code", "USD")
-        currency = refund_item.get("subtotal_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+        shop_currency = li.get("price_set", {}).get("shop_money", {}).get("currency_code", "USD")
+        presentment_currency = li.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
 
-        # Calcul du taux de change réel pour ce refund_line_item
-        calculated_exchange_rate = exchange_rate
-        if amount_currency != 0 and currency != shop_currency:
-            calculated_exchange_rate = abs(amount_shop_money / amount_currency)
-        elif currency == shop_currency:
-            calculated_exchange_rate = 1.0
-        print(f"Calculated Exchange Rate: {calculated_exchange_rate}")
-        print(f"Exchange Rate: {exchange_rate}")
-
-        # Récupère le location_id spécifique à ce refund_line_item, sinon utilise celui du refund global
-        line_item_location_id = refund_item.get("location_id") or location_id
+        exchange_rate = amount_currency / amount_shop_money if amount_shop_money != 0 else 1.0
 
         # Ligne article remboursée
         orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"), li.get("name"))
-        items.append(
-            {
-                "date": refund_date,
-                "order_id": order_id,
-                "client_id": client_id,
-                "type": "refund_line_item",
-                "account_type": account_type,
-                "transaction_description": f"Return: {li.get('name')} (qty: {refund_quantity})",
-                "shop_amount": -amount_shop_money,  # Négatif car c'est un remboursement
-                "amount_currency": -amount_currency,
-                "transaction_currency": currency,
-                "location_id": line_item_location_id,
-                "source_name": source_name,
-                "status": refund_status,
-                "product_id": product_id,
-                "variant_id": li.get("variant_id"),
-                "payment_method_name": payment_method_name,
-                "orders_details_id": orders_details_id,
-                "quantity": refund_quantity,
-                "exchange_rate": calculated_exchange_rate,
-                "shop_currency": shop_currency,
-            }
-        )
+
+        total_shop_tax_amount = 0
+        total_presentment_tax_amount = 0
         for tax_line in li.get("tax_lines", []):
-            print(f"len(tax_line): {len(li.get('tax_lines', []))}")
             tax_shop_amount = float(tax_line.get("price_set", {}).get("shop_money", {}).get("amount", 0))
             tax_currency = tax_line.get("price_set", {}).get("shop_money", {}).get("currency_code", shop_currency)
             tax_presentment_amount = float(tax_line.get("price_set", {}).get("presentment_money", {}).get("amount", 0))
             tax_presentment_currency = tax_line.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+
+            total_shop_tax_amount += tax_shop_amount
+            total_presentment_tax_amount += tax_presentment_amount
+
             taxe_line = {
                 "date": refund_date,
                 "order_id": order_id,
@@ -271,7 +242,7 @@ def get_refund_details(
                 "shop_amount": -tax_shop_amount,
                 "amount_currency": -tax_presentment_amount,
                 "transaction_currency": tax_presentment_currency,
-                "location_id": line_item_location_id,
+                "location_id": location_id,
                 "source_name": source_name,
                 "status": refund_status,
                 "product_id": product_id,
@@ -279,25 +250,78 @@ def get_refund_details(
                 "payment_method_name": payment_method_name,
                 "orders_details_id": orders_details_id,
                 "quantity": refund_quantity,
-                "exchange_rate": calculated_exchange_rate,
+                "exchange_rate": exchange_rate,
                 "shop_currency": tax_currency,
             }
             items.append(taxe_line)
 
-    # Utilisation de Decimal pour éviter les erreurs d'arrondi
-    total_shop_amount = Decimal('0.00')
-    total_amount_currency = Decimal('0.00')
-    adjustment_currency = shop_currency  # Par défaut
+        # Ligne article remboursée
+        items.append(
+            {
+                "date": refund_date,
+                "order_id": order_id,
+                "client_id": client_id,
+                "type": "refund_line_item",
+                "account_type": account_type,
+                "transaction_description": f"Return: {li.get('name')} (qty: {refund_quantity})",
+                "shop_amount": -amount_shop_money if not taxes_included else -amount_shop_money + total_shop_tax_amount,
+                "amount_currency": -amount_currency if not taxes_included else -amount_currency + total_presentment_tax_amount,
+                "transaction_currency": presentment_currency,
+                "location_id": location_id,
+                "source_name": source_name,
+                "status": refund_status,
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "payment_method_name": payment_method_name,
+                "orders_details_id": orders_details_id,
+                "quantity": refund_quantity,
+                "exchange_rate": exchange_rate,
+                "shop_currency": shop_currency,
+            }
+        )
+        # Duties au niveau des line items
+        for duty in li.get("duties", []):
+            duty_shop_amount = float(duty.get("price_set", {}).get("shop_money", {}).get("amount", 0))
+            duty_presentment_amount = float(duty.get("price_set", {}).get("presentment_money", {}).get("amount", duty_shop_amount))
+            duty_currency = duty.get("price_set", {}).get("shop_money", {}).get("currency_code", shop_currency)
+            duty_presentment_currency = duty.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
+
+            exchange_rate = duty_presentment_amount / duty_shop_amount if duty_shop_amount != 0 else 1.0
+
+            items.append({
+                "date": refund_date,
+                "order_id": order_id,
+                "client_id": client_id,
+                "type": "duties_charge",
+                "account_type": "Duties",
+                "transaction_description": "Return: Duties",
+                "shop_amount": -duty_shop_amount,
+                "amount_currency": -duty_presentment_amount,
+                "transaction_currency": duty_presentment_currency,
+                "location_id": location_id,
+                "source_name": source_name,
+                "status": "success",
+                "product_id": product_id,
+                "variant_id": variant_id,
+                "payment_method_name": payment_method_name,
+                "orders_details_id": orders_details_id,
+                "quantity": 1,
+                "exchange_rate": exchange_rate,
+                "shop_currency": duty_currency,
+            })
+    
+    total_shop_amount = 0
+    total_amount_currency = 0
     
     for adjustment in refund.get("order_adjustments", []):
-        amount_shop_money = Decimal(str(adjustment.get("amount_set", {}).get("shop_money", {}).get("amount", 0)))
-        amount_currency = Decimal(str(adjustment.get("amount_set", {}).get("presentment_money", {}).get("amount", amount_shop_money)))
+        amount_shop_money = Decimal(str(adjustment.get("amount_set", {}).get("shop_money", {}).get("amount")))
+        shop_currency = adjustment.get("amount_set", {}).get("shop_money", {}).get("currency_code")
+        amount_currency = Decimal(str(adjustment.get("amount_set", {}).get("presentment_money", {}).get("amount")))
+        presentment_currency = adjustment.get("amount_set", {}).get("presentment_money", {}).get("currency_code")
         print(f"Adjustment - Shop: {amount_shop_money}, Currency: {amount_currency}")
         
         total_shop_amount += amount_shop_money
-        total_amount_currency += amount_currency
-        adjustment_currency = adjustment.get("amount_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
-    
+        total_amount_currency += amount_currency    
     # Créer une seule transaction d'ajustement pour tous les order_adjustments
     if total_shop_amount != 0:
         # Arrondir à 2 décimales et convertir en float pour la base de données
@@ -305,11 +329,7 @@ def get_refund_details(
         final_amount_currency = float(total_amount_currency.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
         
         # Calcul du taux de change réel pour les order_adjustments
-        calculated_adjustment_exchange_rate = exchange_rate
-        if final_amount_currency != 0 and adjustment_currency != shop_currency:
-            calculated_adjustment_exchange_rate = abs(final_shop_amount / final_amount_currency)
-        elif adjustment_currency == shop_currency:
-            calculated_adjustment_exchange_rate = 1.0
+        calculated_adjustment_exchange_rate = amount_currency / amount_shop_money if amount_shop_money != 0 else 1.0
         
         items.append({
             "date": refund_date,
@@ -320,7 +340,7 @@ def get_refund_details(
             "transaction_description": "Order Adjustment",
             "shop_amount": final_shop_amount,
             "amount_currency": final_amount_currency,
-            "transaction_currency": adjustment_currency,
+            "transaction_currency": presentment_currency,
             "location_id": location_id,
             "source_name": source_name,
             "status": "success",
@@ -332,8 +352,6 @@ def get_refund_details(
             "exchange_rate": calculated_adjustment_exchange_rate,
             "shop_currency": shop_currency,
         })
-        
-        print(f"Final Order Adjustment - Shop: {final_shop_amount}, Currency: {final_amount_currency}, Exchange Rate: {calculated_adjustment_exchange_rate}")
 
     return items
 
@@ -572,7 +590,6 @@ def extract_gift_card_transactions(order: Dict[str, Any], order_id: str, client_
     
     return gift_card_transactions
 
-
 def extract_tips_transactions(order: Dict[str, Any], order_id: str, client_id: str, source_name: str, payment_method_name: str | None, taxes_included: bool) -> List[Dict[str, Any]]:
     """Extrait les transactions de pourboires séparées"""
     tips_transactions = []
@@ -625,7 +642,6 @@ def extract_tips_transactions(order: Dict[str, Any], order_id: str, client_id: s
     
     return tips_transactions
 
-
 # ---------------------------------------------------------------------------
 # 4. Extraction d'une commande (lignes + taxes + transactions)
 # ---------------------------------------------------------------------------
@@ -642,13 +658,13 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             order_url = f"https://{store_domain}/admin/api/{api_version}/orders/{order_id}.json"
             order_resp = requests.get(order_url, headers=_shopify_headers())
             order_resp.raise_for_status()
-            
+
             # Vérification pour éviter l'erreur 'NoneType' object has no attribute 'get'
             order_data = order_resp.json()
             if order_data is None:
                 print(f"Réponse JSON vide pour l'ordre {order_id}")
                 return []
-            
+
             order = order_data.get("order", {})
             # Sécurisation de l'accès au client_id
             customer = order.get("customer")
@@ -657,10 +673,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             fulfillments = order.get("fulfillments", [])
             refunds = order.get("refunds", [])
             taxes_included = order.get("taxes_included", False)
-            
-            # Calcul du taux de change pour cette commande en utilisant notre nouvelle fonction
-            exchange_rate, local_currency, shop_currency = calculate_exchange_rate(order)
-            
+
         except Exception as e:
             print(f"Error getting order: {e}")
             if attempts == 3:
@@ -690,10 +703,10 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     # ------------------------------------------------------------------ #
     # 3.a  Lignes d'articles (HT, remises, taxes)
     # ------------------------------------------------------------------ #
-    
+
     # Collecter tous les line_items traités dans les fulfillments pour éviter les doublons
     processed_line_items = set()
-    
+
     # D'abord, traiter les line_items dans les fulfillments (priorité car ils ont un location_id)
     for f in fulfillments:
         location_id = f.get("location_id")
@@ -706,30 +719,25 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             product_id = li.get("product_id")
             variant_id = li.get("variant_id")
             quantity = int(li.get("quantity", 1))  # Récupération de la quantité
-            
+
             # Marquer ce line_item comme traité pour éviter les doublons
             line_item_key = (product_id, variant_id)
             processed_line_items.add(line_item_key)
-            
-            # Initialiser les variables de taxes pour chaque line item
-            total_tax_amount = 0
-            total_tax_amount_currency = 0
             
             # Récupération de l'orders_details_id pour ce line_item
             orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
             # Utilise presentment_money si disponible, sinon shop_money
-            price_set = li.get("pre_tax_price_set", {})
+            price_set = li.get("price_set", {})
             presentment_money = price_set.get("presentment_money", {})
             shop_money = price_set.get("shop_money", {})
-            
-            if presentment_money and presentment_money.get("amount"):
-                local_unit_amount = float(presentment_money.get("amount", 0))
-                currency = presentment_money.get("currency_code", local_currency)
-            else:
-                local_unit_amount = float(li.get("pre_tax_price", 0))
-                currency = shop_money.get("currency_code", shop_currency)
-            
+
+            shop_amount = float(shop_money.get("amount", 0))
+            shop_currency = shop_money.get("currency_code", None)
+            presentment_amount = float(presentment_money.get("amount", 0))
+            presentment_currency = presentment_money.get("currency_code", None)
+
+            exchange_rate = presentment_amount / shop_amount if shop_amount != 0 else 1.0
 
             #  – remises éventuelles (déjà calculées pour la quantité totale dans Shopify)
             for d in li.get("discount_allocations", []):
@@ -737,16 +745,14 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 disc_amount_set = d.get("amount_set", {})
                 disc_presentment = disc_amount_set.get("presentment_money", {})
                 disc_shop = disc_amount_set.get("shop_money", {})
-                
-                if disc_presentment and disc_presentment.get("amount"):
-                    disc_local_amount = float(disc_presentment.get("amount", 0))
-                    disc_currency = disc_presentment.get("currency_code", local_currency)
-                else:
-                    disc_local_amount = float(d.get("amount", 0))
-                    disc_currency = disc_shop.get("currency_code", shop_currency)
-                
-                disc_amount_usd, disc_amount_currency = apply_currency_conversion(disc_local_amount, exchange_rate, disc_currency, shop_currency)
-                
+
+                disc_presentment_amount = float(disc_presentment.get("amount", 0))
+                disc_presentment_currency = disc_presentment.get("currency_code", None)
+                disc_shop_amount = float(disc_shop.get("amount", 0))
+                disc_shop_currency = disc_shop.get("currency_code", shop_currency)
+
+                exchange_rate = disc_presentment_amount / disc_shop_amount if disc_shop_amount != 0 else 1.0
+
                 transactions.append(
                     {
                         "date": created_at,
@@ -755,9 +761,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "type": "discount_line",
                         "account_type": "Discounts",
                         "transaction_description": f"Discount for {li.get('name')} (qty: {quantity})",
-                        "shop_amount": -disc_amount_usd,  # Négatif car c'est une remise
-                        "amount_currency": -disc_amount_currency if disc_amount_currency else None,
-                        "transaction_currency": disc_currency,
+                        "shop_amount": -disc_shop_amount,  # Négatif car c'est une remise
+                        "amount_currency": -disc_presentment_amount,
+                        "transaction_currency": disc_presentment_currency,
                         "location_id": location_id,
                         "source_name": source_name,
                         "status": status,
@@ -767,27 +773,30 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "orders_details_id": orders_details_id,
                         "quantity": quantity,
                         "exchange_rate": exchange_rate,
-                        "shop_currency": shop_currency,
+                        "shop_currency": disc_shop_currency,
                     }
                 )
 
             #  – taxes (déjà calculées pour la quantité totale dans Shopify)
+            # Initialiser les variables de taxes pour chaque line item
+            total_shop_tax_amount = 0
+            total_presentment_tax_amount = 0
             for tax in li.get("tax_lines", []):
                 # Utilise presentment_money si disponible pour les taxes
                 tax_price_set = tax.get("price_set", {})
                 tax_presentment = tax_price_set.get("presentment_money", {})
                 tax_shop = tax_price_set.get("shop_money", {})
-                
-                if tax_presentment and tax_presentment.get("amount"):
-                    tax_local_amount = float(tax_presentment.get("amount", 0))
-                    tax_currency = tax_presentment.get("currency_code", local_currency)
-                else:
-                    tax_local_amount = float(tax.get("price", 0))
-                    tax_currency = tax_shop.get("currency_code", shop_currency)
-                
-                tax_amount_usd, tax_amount_currency = apply_currency_conversion(tax_local_amount, exchange_rate, tax_currency, shop_currency)
-                total_tax_amount += tax_amount_usd
-                total_tax_amount_currency += tax_amount_currency
+
+                tax_presentment_amount = float(tax_presentment.get("amount", 0))
+                tax_presentment_currency = tax_presentment.get("currency_code", None)
+                tax_shop_amount = float(tax_shop.get("amount", 0))
+                tax_shop_currency = tax_shop.get("currency_code", shop_currency)
+
+                exchange_rate = tax_presentment_amount / tax_shop_amount if tax_shop_amount != 0 else 1.0
+
+                total_shop_tax_amount += tax_shop_amount
+                total_presentment_tax_amount += tax_presentment_amount
+
                 transactions.append(
                     {
                         "date": created_at,
@@ -796,9 +805,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "type": "tax_line",
                         "account_type": "Taxes",
                         "transaction_description": f"{tax.get('title')} for {li.get('name')} (qty: {quantity})",
-                        "shop_amount": tax_amount_usd,
-                        "amount_currency": tax_amount_currency,
-                        "transaction_currency": tax_currency,
+                        "shop_amount": tax_shop_amount,
+                        "amount_currency": tax_presentment_amount,
+                        "transaction_currency": tax_presentment_currency,
                         "location_id": location_id,
                         "source_name": source_name,
                         "status": status,
@@ -808,18 +817,12 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                         "orders_details_id": orders_details_id,
                         "quantity": quantity,
                         "exchange_rate": exchange_rate,
-                        "shop_currency": shop_currency,
+                        "shop_currency": tax_shop_currency,
                     }
                 )
             # Multiplier par la quantité pour obtenir le montant total
-            local_amount = local_unit_amount * quantity
-            amount_usd, amount_currency = apply_currency_conversion(local_amount, exchange_rate, currency, shop_currency)
-            # if taxes_included:
-            #     print(f"Taxes incluses détectées - Prix original: {amount_usd}, Taxes: {total_tax_amount}, Montant HT: {amount_usd - total_tax_amount}")
-            #     amount_usd = amount_usd - total_tax_amount
-            #     amount_currency = amount_currency - total_tax_amount_currency
-            total_tax_amount = 0
-            total_tax_amount_currency = 0
+            shop_amount = shop_amount * quantity
+            presentment_amount = presentment_amount * quantity
             #  – vente brute HT
             transactions.append(
                 {
@@ -829,9 +832,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "type": "sales_gross",
                     "account_type": "Sales",
                     "transaction_description": f"{li.get('name')} Gross HT (qty: {quantity})",
-                    "shop_amount": amount_usd,
-                    "amount_currency": amount_currency,
-                    "transaction_currency": currency,
+                    "shop_amount": shop_amount if not taxes_included else shop_amount - total_shop_tax_amount,
+                    "amount_currency": presentment_amount if not taxes_included else presentment_amount - total_presentment_tax_amount,
+                    "transaction_currency": presentment_currency,
                     "location_id": location_id,
                     "source_name": source_name,
                     "status": status,
@@ -866,39 +869,31 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             
         quantity = int(li.get("quantity", 1))
         
-        # Initialiser les variables de taxes pour chaque line item
-        total_tax_amount = 0
-        total_tax_amount_currency = 0
-        
         # Récupération de l'orders_details_id pour ce line_item
         orders_details_id = get_orders_details_id(order_id, product_id, variant_id, li.get("name"))
 
         # Utilise presentment_money si disponible, sinon shop_money
-        price_set = li.get("pre_tax_price_set", {})
+        price_set = li.get("price_set", {})
         presentment_money = price_set.get("presentment_money", {})
         shop_money = price_set.get("shop_money", {})
-        if presentment_money and presentment_money.get("amount"):
-            local_unit_amount = float(presentment_money.get("amount", 0))
-            currency = presentment_money.get("currency_code", local_currency)
-        else:
-            local_unit_amount = float(li.get("pre_tax_price", 0))
-            currency = shop_money.get("currency_code", shop_currency)
-        
+        shop_amount = float(shop_money.get("amount", 0))
+        shop_currency = shop_money.get("currency_code", None)
+        presentment_amount = float(presentment_money.get("amount", 0))
+        presentment_currency = presentment_money.get("currency_code", None)
+        exchange_rate = presentment_amount / shop_amount if shop_amount != 0 else 1.0
 
         # Remises éventuelles
         for d in li.get("discount_allocations", []):
             disc_amount_set = d.get("amount_set", {})
             disc_presentment = disc_amount_set.get("presentment_money", {})
             disc_shop = disc_amount_set.get("shop_money", {})
-            
-            if disc_presentment and disc_presentment.get("amount"):
-                disc_local_amount = float(disc_presentment.get("amount", 0))
-                disc_currency = disc_presentment.get("currency_code", local_currency)
-            else:
-                disc_local_amount = float(d.get("amount", 0))
-                disc_currency = disc_shop.get("currency_code", shop_currency)
-            
-            disc_amount_usd, disc_amount_currency = apply_currency_conversion(disc_local_amount, exchange_rate, disc_currency, shop_currency)
+
+            disc_presentment_amount = float(disc_presentment.get("amount", 0))
+            disc_presentment_currency = disc_presentment.get("currency_code", None)
+            disc_shop_amount = float(disc_shop.get("amount", 0))
+            disc_shop_currency = disc_shop.get("currency_code", shop_currency)
+
+            exchange_rate = disc_presentment_amount / disc_shop_amount if disc_shop_amount != 0 else 1.0
             
             transactions.append(
                 {
@@ -908,9 +903,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "type": "discount_line",
                     "account_type": "Discounts",
                     "transaction_description": f"Discount for {li.get('name')} (qty: {quantity})",
-                    "shop_amount": -disc_amount_usd,
-                    "amount_currency": -disc_amount_currency if disc_amount_currency else None,
-                    "transaction_currency": disc_currency,
+                    "shop_amount": -disc_shop_amount,
+                    "amount_currency": -disc_presentment_amount,
+                    "transaction_currency": disc_presentment_currency,
                     "location_id": primary_location_id,
                     "source_name": source_name,
                     "status": "pending",
@@ -920,27 +915,28 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "orders_details_id": orders_details_id,
                     "quantity": quantity,
                     "exchange_rate": exchange_rate,
-                    "shop_currency": shop_currency,
+                    "shop_currency": disc_shop_currency,
                 }
             )
 
         # Taxes
+        total_shop_tax_amount = 0
+        total_presentment_tax_amount = 0
         for tax in li.get("tax_lines", []):
             tax_price_set = tax.get("price_set", {})
             tax_presentment = tax_price_set.get("presentment_money", {})
             tax_shop = tax_price_set.get("shop_money", {})
+
+            tax_presentment_amount = float(tax_presentment.get("amount", 0))
+            tax_presentment_currency = tax_presentment.get("currency_code", None)
+            tax_shop_amount = float(tax_shop.get("amount", 0))
+            tax_shop_currency = tax_shop.get("currency_code", None)
             
-            if tax_presentment and tax_presentment.get("amount"):
-                tax_local_amount = float(tax_presentment.get("amount", 0))
-                tax_currency = tax_presentment.get("currency_code", local_currency)
-            else:
-                tax_local_amount = float(tax.get("price", 0))
-                tax_currency = tax_shop.get("currency_code", shop_currency)
-            
-            tax_amount_usd, tax_amount_currency = apply_currency_conversion(tax_local_amount, exchange_rate, tax_currency, shop_currency)
-            total_tax_amount += tax_amount_usd
-            total_tax_amount_currency += tax_amount_currency
-            
+            exchange_rate = tax_presentment_amount / tax_shop_amount if tax_shop_amount != 0 else 1.0
+
+            total_shop_tax_amount += tax_shop_amount
+            total_presentment_tax_amount += tax_presentment_amount
+
             transactions.append(
                 {
                     "date": order.get("created_at"),
@@ -949,9 +945,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "type": "tax_line",
                     "account_type": "Taxes",
                     "transaction_description": f"{tax.get('title')} for {li.get('name')} (qty: {quantity})",
-                    "shop_amount": tax_amount_usd,
-                    "amount_currency": tax_amount_currency,
-                    "transaction_currency": tax_currency,
+                    "shop_amount": tax_shop_amount,
+                    "amount_currency": tax_presentment_amount,
+                    "transaction_currency": tax_presentment_currency,
                     "location_id": primary_location_id,
                     "source_name": source_name,
                     "status": "pending",
@@ -961,18 +957,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "orders_details_id": orders_details_id,
                     "quantity": quantity,
                     "exchange_rate": exchange_rate,
-                    "shop_currency": shop_currency,
+                    "shop_currency": tax_shop_currency,
                 }
             )
-
-        # Multiplier par la quantité pour obtenir le montant total
-        local_amount = local_unit_amount * quantity
-        amount_usd, amount_currency = apply_currency_conversion(local_amount, exchange_rate, currency, shop_currency)
-        # if taxes_included:
-        #     amount_usd = amount_usd - total_tax_amount
-        #     amount_currency = amount_currency - total_tax_amount_currency
-        total_tax_amount = 0
-        total_tax_amount_currency = 0
 
         # Créer les transactions pour les line_items non-expédiés
         # Utiliser la date de création de la commande et un statut "pending"
@@ -984,9 +971,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "type": "sales_gross",
                 "account_type": "Sales",
                 "transaction_description": f"{li.get('name')} Gross HT (qty: {quantity})",
-                "shop_amount": amount_usd,
-                "amount_currency": amount_currency,
-                "transaction_currency": currency,
+                "shop_amount": shop_amount if not taxes_included else shop_amount - total_shop_tax_amount,
+                "amount_currency": presentment_amount if not taxes_included else presentment_amount - total_presentment_tax_amount,
+                "transaction_currency": presentment_currency,
                 "location_id": primary_location_id,  # Utilise le location principal
                 "source_name": source_name,
                 "status": "pending",  # Statut pour les articles non-expédiés
@@ -1082,8 +1069,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 source_name=source_name,
                 payment_method_name=payment_method_name,
                 exchange_rate=exchange_rate,
-                local_currency=local_currency,
-                shop_currency=shop_currency,
+                taxes_included=taxes_included,
             )
         )
 
