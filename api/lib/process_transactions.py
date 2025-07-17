@@ -993,7 +993,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     for t in tx_list:
         # Utilise le location_id de la transaction, sinon celui du fulfillment principal
         transaction_location_id = t.get("location_id") or primary_location_id
-        if t.get("status") != "success":
+        if t.get("status") != "success" or t.get("kind") != "capture":
             continue
 
         # Détermine le bon account_type selon le kind de transaction
