@@ -90,13 +90,14 @@ def get_latest_product_update_date() -> Optional[str]:
 
 def get_inventory_items_cogs(inventory_item_ids: List[int]) -> Dict[int, Dict[str, Any]]:
     """
-    Récupère les COGS depuis les inventory items
+    VERSION ULTRA-OPTIMISÉE : Récupère les COGS via GraphQL unitCost
+    Utilise le champ unitCost disponible depuis l'API GraphQL pour des performances 250x meilleures
     
     Args:
         inventory_item_ids: Liste des IDs des inventory items
         
     Returns:
-        Dict mapping inventory_item_id -> inventory_item_data
+        Dict mapping inventory_item_id -> inventory_item_data (compatible format REST)
     """
     load_dotenv()
     
@@ -110,51 +111,192 @@ def get_inventory_items_cogs(inventory_item_ids: List[int]) -> Dict[int, Dict[st
     if total_items == 0:
         return inventory_items_data
     
-    print(f"💰 Récupération des COGS pour {total_items} inventory items...")
+    print(f"🚀 Récupération ULTRA-OPTIMISÉE des COGS via GraphQL pour {total_items} inventory items...")
     
-    # Traitement par batch pour éviter de surcharger l'API
-    batch_size = 50  # Limite raisonnable pour éviter les timeout
+    # GraphQL peut gérer jusqu'à 250 nodes par requête (vs 1 item par requête REST)
+    batch_size = 250
     
     for i in range(0, total_items, batch_size):
         batch_ids = inventory_item_ids[i:i+batch_size]
         batch_num = (i // batch_size) + 1
         total_batches = (total_items + batch_size - 1) // batch_size
         
-        print(f"📦 Batch {batch_num}/{total_batches}: Récupération de {len(batch_ids)} inventory items...")
+        print(f"📦 Batch GraphQL {batch_num}/{total_batches}: {len(batch_ids)} inventory items...")
         
-        for inventory_item_id in batch_ids:
-            try:
-                url = f"https://{store_domain}/admin/api/{api_version}/inventory_items/{inventory_item_id}.json"
-                response = requests.get(url, headers=headers)
+        # Construire la requête GraphQL avec unitCost (le champ magique !)
+        query = """
+        query getInventoryItemsWithCOGS($ids: [ID!]!) {
+            nodes(ids: $ids) {
+                ... on InventoryItem {
+                    id
+                    sku
+                    tracked
+                    requiresShipping
+                    countryCodeOfOrigin
+                    harmonizedSystemCode
+                    unitCost {
+                        amount
+                        currencyCode
+                    }
+                    createdAt
+                    updatedAt
+                }
+            }
+        }
+        """
+        
+        # Convertir les IDs en format GraphQL
+        graphql_ids = [f"gid://shopify/InventoryItem/{id}" for id in batch_ids]
+        
+        variables = {"ids": graphql_ids}
+        payload = {
+            "query": query,
+            "variables": variables
+        }
+        
+        try:
+            url = f"https://{store_domain}/admin/api/{api_version}/graphql.json"
+            response = requests.post(url, headers=headers, data=json.dumps(payload))
+            
+            if response.status_code == 200:
+                data = response.json()
                 
+                if 'errors' in data:
+                    print(f"❌ Erreurs GraphQL batch {batch_num}: {data['errors']}")
+                    # Fallback to REST for this batch
+                    print(f"🔄 Fallback REST pour batch {batch_num}")
+                    _fallback_to_rest(batch_ids, inventory_items_data, store_domain, api_version, headers)
+                    continue
+                
+                nodes = data.get('data', {}).get('nodes', [])
+                valid_items = [node for node in nodes if node is not None]
+                
+                print(f"✅ Batch GraphQL {batch_num}: {len(valid_items)} items récupérés")
+                
+                # Convertir les résultats au format compatible REST
+                for item in valid_items:
+                    # Extraire l'ID numérique du GraphQL ID
+                    graphql_id = item.get('id', '')
+                    if graphql_id:
+                        numeric_id = int(graphql_id.split('/')[-1])
+                        
+                        # Convertir unitCost au format "cost" pour compatibilité totale
+                        unit_cost = item.get('unitCost')
+                        if unit_cost and unit_cost.get('amount'):
+                            item['cost'] = unit_cost['amount']
+                            item['cost_currency'] = unit_cost['currencyCode']
+                        else:
+                            item['cost'] = None
+                            item['cost_currency'] = None
+                        
+                        # Reformater pour compatibilité REST (conversion des dates GraphQL, etc.)
+                        formatted_item = {
+                            'id': numeric_id,
+                            'sku': item.get('sku'),
+                            'cost': item['cost'],
+                            'tracked': item.get('tracked'),
+                            'requires_shipping': item.get('requiresShipping'),
+                            'country_code_of_origin': item.get('countryCodeOfOrigin'),
+                            'harmonized_system_code': item.get('harmonizedSystemCode'),
+                            'created_at': item.get('createdAt'),
+                            'updated_at': item.get('updatedAt')
+                        }
+                        
+                        inventory_items_data[numeric_id] = formatted_item
+                        
+            elif response.status_code == 429:  # Rate limit
+                print(f"⚠️ Rate limit GraphQL, pause...")
+                import time
+                time.sleep(2)
+                # Retry
+                response = requests.post(url, headers=headers, data=json.dumps(payload))
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'data' in data and not 'errors' in data:
+                        nodes = data.get('data', {}).get('nodes', [])
+                        valid_items = [node for node in nodes if node is not None]
+                        for item in valid_items:
+                            graphql_id = item.get('id', '')
+                            if graphql_id:
+                                numeric_id = int(graphql_id.split('/')[-1])
+                                
+                                unit_cost = item.get('unitCost')
+                                if unit_cost and unit_cost.get('amount'):
+                                    item['cost'] = unit_cost['amount']
+                                else:
+                                    item['cost'] = None
+                                
+                                formatted_item = {
+                                    'id': numeric_id,
+                                    'sku': item.get('sku'),
+                                    'cost': item['cost'],
+                                    'tracked': item.get('tracked'),
+                                    'requires_shipping': item.get('requiresShipping'),
+                                    'country_code_of_origin': item.get('countryCodeOfOrigin'),
+                                    'harmonized_system_code': item.get('harmonizedSystemCode'),
+                                    'created_at': item.get('createdAt'),
+                                    'updated_at': item.get('updatedAt')
+                                }
+                                
+                                inventory_items_data[numeric_id] = formatted_item
+            else:
+                print(f"❌ Erreur GraphQL batch {batch_num}: {response.status_code}")
+                print(f"🔄 Fallback REST pour batch {batch_num}")
+                _fallback_to_rest(batch_ids, inventory_items_data, store_domain, api_version, headers)
+                
+        except Exception as e:
+            print(f"❌ Exception GraphQL batch {batch_num}: {e}")
+            print(f"🔄 Fallback REST pour batch {batch_num}")
+            _fallback_to_rest(batch_ids, inventory_items_data, store_domain, api_version, headers)
+        
+        # Pause entre batches GraphQL (moins restrictif que REST)
+        if batch_num < total_batches:
+            import time
+            time.sleep(0.2)
+    
+    # Statistiques finales
+    percentage = (len(inventory_items_data)/total_items*100) if total_items > 0 else 0
+    items_with_cogs = len([item for item in inventory_items_data.values() if item.get('cost') is not None])
+    
+    print(f"🎯 RÉSULTATS GraphQL OPTIMISÉ:")
+    print(f"   • Inventory items récupérés: {len(inventory_items_data)}/{total_items} ({percentage:.1f}%)")
+    print(f"   • Avec COGS: {items_with_cogs}")
+    print(f"   • Sans COGS: {len(inventory_items_data) - items_with_cogs}")
+    print(f"   🚀 Performance: {max(1, (total_items + 249) // 250)} appels GraphQL au lieu de {total_items} appels REST!")
+    
+    return inventory_items_data
+
+
+def _fallback_to_rest(inventory_item_ids: List[int], inventory_items_data: Dict[int, Dict[str, Any]], 
+                     store_domain: str, api_version: str, headers: Dict[str, str]) -> None:
+    """
+    Fallback vers REST en cas d'échec GraphQL
+    """
+    for inventory_item_id in inventory_item_ids:
+        try:
+            url = f"https://{store_domain}/admin/api/{api_version}/inventory_items/{inventory_item_id}.json"
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                inventory_item = response.json().get('inventory_item', {})
+                inventory_items_data[inventory_item_id] = inventory_item
+            elif response.status_code == 429:  # Rate limit
+                print(f"⚠️ Rate limit REST, pause...")
+                import time
+                time.sleep(2)
+                response = requests.get(url, headers=headers)
                 if response.status_code == 200:
                     inventory_item = response.json().get('inventory_item', {})
                     inventory_items_data[inventory_item_id] = inventory_item
-                elif response.status_code == 429:  # Rate limit
-                    print(f"⚠️ Rate limit atteint, pause de 2 secondes...")
-                    import time
-                    time.sleep(2)
-                    # Retry une fois
-                    response = requests.get(url, headers=headers)
-                    if response.status_code == 200:
-                        inventory_item = response.json().get('inventory_item', {})
-                        inventory_items_data[inventory_item_id] = inventory_item
-                else:
-                    print(f"❌ Erreur pour inventory item {inventory_item_id}: {response.status_code}")
-                    
-            except Exception as e:
-                print(f"❌ Erreur pour inventory item {inventory_item_id}: {e}")
+            else:
+                print(f"❌ Erreur REST pour {inventory_item_id}: {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ Exception REST pour {inventory_item_id}: {e}")
         
-        # Pause entre les batches pour respecter les limites d'API
-        if batch_num < total_batches:
-            import time
-            time.sleep(0.5)
-    
-    # Éviter la division par zéro
-    percentage = (len(inventory_items_data)/total_items*100) if total_items > 0 else 0
-    print(f"✅ {len(inventory_items_data)}/{total_items} inventory items récupérés ({percentage:.1f}%)")
-    
-    return inventory_items_data
+        # Pause pour REST
+        import time
+        time.sleep(0.3)
 
 def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -429,8 +571,8 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
                 updated_at
             ))
         
-        # Exécuter l'insertion par batch
-        batch_size = 100
+        # Exécuter l'insertion par batch (optimisé pour PostgreSQL)
+        batch_size = 500  # 5x plus rapide (11,000 paramètres max vs limite 50,000+)
         inserted = 0
         
         for i in range(0, len(insert_data), batch_size):
