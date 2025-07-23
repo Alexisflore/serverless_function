@@ -352,6 +352,35 @@ def get_refund_details(
             "exchange_rate": calculated_adjustment_exchange_rate,
             "shop_currency": shop_currency,
         })
+    for discount in li.get("discount_allocations", []):
+        discount_shop_amount = float(discount.get("amount_set", {}).get("shop_money", {}).get("amount", 0))
+        discount_currency = discount.get("amount_set", {}).get("shop_money", {}).get("currency_code", "USD")
+        discount_presentment_amount = float(discount.get("amount_set", {}).get("presentment_money", {}).get("amount", discount_shop_amount))
+        discount_presentment_currency = discount.get("amount_set", {}).get("presentment_money", {}).get("currency_code", "USD")
+
+        exchange_rate = discount_presentment_amount / discount_shop_amount if discount_shop_amount != 0 else 1.0
+
+        items.append({
+            "date": refund_date,
+            "order_id": order_id,
+            "client_id": client_id,
+            "type": "discount_allocation",
+            "account_type": "Discounts",
+            "transaction_description": f"Return: Discount for {li.get('name')}",
+            "shop_amount": discount_shop_amount,
+            "amount_currency": discount_presentment_amount,
+            "transaction_currency": discount_presentment_currency,
+            "location_id": location_id,
+            "source_name": source_name,
+            "status": "success",
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "payment_method_name": None,
+            "orders_details_id": orders_details_id,
+            "quantity": 1,
+            "exchange_rate": exchange_rate,
+            "shop_currency": discount_currency,
+        })
 
     return items
 
