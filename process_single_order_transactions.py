@@ -257,7 +257,7 @@ def process_single_order_transactions(order_id):
 def main():
     """Fonction principale"""
     # ID de l'ordre à traiter
-    ORDER_ID = "6018083553351"
+    ORDER_ID = "6070870638663"
     
     print("🚀 SCRIPT DE TRAITEMENT COMPLET D'UN ORDRE SPÉCIFIQUE")
     print(f"Ordre cible: {ORDER_ID}")

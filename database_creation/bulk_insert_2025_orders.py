@@ -17,13 +17,13 @@ from api.process_daily_data import process_daily_data
 # Load environment variables from .env file
 load_dotenv()
 
-def get_dates_for_year(year=2025):
+def get_dates_for_year(year=2024):
     """
     Generator function that yields date pairs for each day of the specified year
     Each pair consists of (start_date, end_date) for a single day
     """
-    start_date = datetime(year, 6, 28)
-    end_date = datetime(year, 6, 30)
+    start_date = datetime(year +1,7, 9)
+    end_date = datetime(year + 1, 7, 20)
 
     current = start_date
     while current < end_date:
@@ -41,7 +41,7 @@ def get_dates_for_year(year=2025):
 
 def main():
     """Main function to process all orders for 2025 day by day"""
-    year = 2025
+    year = 2024
 
     # Check if required environment variables are set
     if not os.environ.get("SHOPIFY_STORE_DOMAIN") or not os.environ.get("SHOPIFY_ACCESS_TOKEN") or not os.environ.get("SHOPIFY_API_VERSION"):
