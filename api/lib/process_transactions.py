@@ -1222,9 +1222,17 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         WHERE id = %s
     """
 
+    # Check principal avec date exacte
     check_q = """
-        SELECT id FROM transaction
+        SELECT id, status FROM transaction
         WHERE date = %s AND order_id = %s AND transaction_description = %s
+          AND source_name = %s
+    """
+    
+    # Check secondaire sans date pour détecter les mises à jour de statut
+    check_q_without_date = """
+        SELECT id, status, date FROM transaction
+        WHERE order_id = %s AND transaction_description = %s
           AND source_name = %s
     """
 
@@ -1235,6 +1243,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             
             try:
                 dt_obj = _iso_to_dt(tx["date"])
+                
+                # Premier check : date exacte
                 params_check = (
                     dt_obj,
                     tx["order_id"],
@@ -1245,6 +1255,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                 existing = cur.fetchone()
 
                 if existing:
+                    # Transaction trouvée avec date exacte - mise à jour classique
                     cur.execute(
                         update_q,
                         (
@@ -1267,30 +1278,118 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                     )
                     stats["updated"] += 1
                 else:
-                    cur.execute(
-                        insert_q,
-                        (
-                            dt_obj,
-                            tx["order_id"],
-                            tx["client_id"],
-                            tx["account_type"],
-                            tx["transaction_description"],
-                            tx["shop_amount"],
-                            tx.get("amount_currency"),
-                            tx["transaction_currency"],
-                            tx.get("location_id"),
-                            tx.get("source_name"),
-                            tx.get("status"),
-                            tx.get("product_id"),
-                            tx.get("variant_id"),
-                            tx.get("payment_method_name"),
-                            tx.get("orders_details_id"),
-                            tx.get("quantity", 1),
-                            tx.get("exchange_rate"),
-                            tx.get("shop_currency"),
-                        ),
+                    # Pas trouvé avec date exacte - check sans date pour détecter changement de statut
+                    params_check_no_date = (
+                        tx["order_id"],
+                        tx["transaction_description"],
+                        tx.get("source_name"),
                     )
-                    stats["inserted"] += 1
+                    cur.execute(check_q_without_date, params_check_no_date)
+                    existing_no_date = cur.fetchone()
+                    
+                    if existing_no_date:
+                        existing_id, existing_status, existing_date = existing_no_date
+                        current_status = tx.get("status")
+                        
+                        # Si le statut est différent, c'est une mise à jour de la même transaction
+                        if existing_status != current_status:
+                            # Mise à jour avec nouvelle date et nouveau statut
+                            update_q_with_date = """
+                                UPDATE transaction SET
+                                    date = %s,
+                                    client_id = %s,
+                                    account_type = %s,
+                                    shop_amount = %s,
+                                    amount_currency = %s,
+                                    transaction_currency = %s,
+                                    location_id = %s,
+                                    status = %s,
+                                    product_id = %s,
+                                    variant_id = %s,
+                                    payment_method_name = %s,
+                                    orders_details_id = %s,
+                                    quantity = %s,
+                                    exchange_rate = %s,
+                                    shop_currency = %s,
+                                    updated_at_timestamp = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                            """
+                            cur.execute(
+                                update_q_with_date,
+                                (
+                                    dt_obj,
+                                    tx["client_id"],
+                                    tx["account_type"],
+                                    tx["shop_amount"],
+                                    tx.get("amount_currency"),
+                                    tx["transaction_currency"],
+                                    tx.get("location_id"),
+                                    current_status,
+                                    tx.get("product_id"),
+                                    tx.get("variant_id"),
+                                    tx.get("payment_method_name"),
+                                    tx.get("orders_details_id"),
+                                    tx.get("quantity", 1),
+                                    tx.get("exchange_rate"),
+                                    tx.get("shop_currency"),
+                                    existing_id,
+                                ),
+                            )
+                            stats["updated"] += 1
+                            print(f"Mise à jour statut: {existing_status} -> {current_status} pour transaction order_id={tx['order_id']}")
+                        else:
+                            # Même statut mais date différente - nouvelle transaction
+                            cur.execute(
+                                insert_q,
+                                (
+                                    dt_obj,
+                                    tx["order_id"],
+                                    tx["client_id"],
+                                    tx["account_type"],
+                                    tx["transaction_description"],
+                                    tx["shop_amount"],
+                                    tx.get("amount_currency"),
+                                    tx["transaction_currency"],
+                                    tx.get("location_id"),
+                                    tx.get("source_name"),
+                                    tx.get("status"),
+                                    tx.get("product_id"),
+                                    tx.get("variant_id"),
+                                    tx.get("payment_method_name"),
+                                    tx.get("orders_details_id"),
+                                    tx.get("quantity", 1),
+                                    tx.get("exchange_rate"),
+                                    tx.get("shop_currency"),
+                                ),
+                            )
+                            stats["inserted"] += 1
+                            print(f"Nouvelle transaction (même statut {current_status}) pour order_id={tx['order_id']}")
+                    else:
+                        # Aucune transaction similaire trouvée - nouvelle insertion
+                        cur.execute(
+                            insert_q,
+                            (
+                                dt_obj,
+                                tx["order_id"],
+                                tx["client_id"],
+                                tx["account_type"],
+                                tx["transaction_description"],
+                                tx["shop_amount"],
+                                tx.get("amount_currency"),
+                                tx["transaction_currency"],
+                                tx.get("location_id"),
+                                tx.get("source_name"),
+                                tx.get("status"),
+                                tx.get("product_id"),
+                                tx.get("variant_id"),
+                                tx.get("payment_method_name"),
+                                tx.get("orders_details_id"),
+                                tx.get("quantity", 1),
+                                tx.get("exchange_rate"),
+                                tx.get("shop_currency"),
+                            ),
+                        )
+                        stats["inserted"] += 1
             except Exception as exc:
                 stats["errors"].append(str(exc))
                 stats["skipped"] += 1

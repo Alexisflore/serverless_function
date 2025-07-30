@@ -327,7 +327,7 @@ def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, An
     headers = _shopify_headers()
     params = {
         "limit": 250,
-        "fields": "id,title,handle,status,product_type,vendor,tags,created_at,updated_at,variants,options"
+        "fields": "id,title,handle,status,product_type,vendor,tags,created_at,updated_at,variants,options,images"
     }
     
     # Ajouter le filtre de date si spécifié (utilise updated_at_min)
@@ -385,6 +385,12 @@ def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, An
     print(f"\n🔄 Extraction des variants depuis {len(all_products):,} produits...")
     
     for product in all_products:
+        # Récupérer la première image du produit
+        images = product.get('images', [])
+        first_image_url = None
+        if images:
+            first_image_url = images[0].get('src')  # URL CDN de la première image
+        
         for variant in product.get('variants', []):
             inventory_item_id = variant.get('inventory_item_id')
             if inventory_item_id:
@@ -424,6 +430,7 @@ def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, An
                 'tags': product.get('tags'),
                 'created_at': variant.get('created_at'),
                 'updated_at': variant.get('updated_at'),
+                'image_url': first_image_url,  # Ajouter l'URL de la première image
                 'cogs': None  # Sera rempli plus tard
             })
     
@@ -460,12 +467,17 @@ def get_shopify_products_since(since_date: Optional[str] = None) -> Dict[str, An
     
     # Statistiques détaillées
     total_variants = len(variants_data)
+    images_found = len([v for v in variants_data if v.get('image_url') is not None])
+    images_missing = total_variants - images_found
+    
     print(f"✅ Mapping terminé pour {total_variants} variants:")
     
     if total_variants > 0:
         print(f"   • COGS > 0: {cogs_found} variants ({cogs_found/total_variants*100:.1f}%)")
         print(f"   • COGS = 0: {cogs_zero} variants ({cogs_zero/total_variants*100:.1f}%)")
         print(f"   • Sans COGS: {cogs_missing} variants ({cogs_missing/total_variants*100:.1f}%)")
+        print(f"   • Avec images: {images_found} variants ({images_found/total_variants*100:.1f}%)")
+        print(f"   • Sans images: {images_missing} variants ({images_missing/total_variants*100:.1f}%)")
         print(f"   🎯 TOUS les {total_variants} variants seront insérés en base")
     else:
         print("   ℹ️  Aucun variant à traiter")
@@ -499,9 +511,9 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
             variant_id, product_id, inventory_item_id, cogs, status, vendor,
             barcode, sku, value_color, value_size, title, price, compare_at_price,
             weight, weight_unit, position, product_title,
-            product_handle, product_type, tags, created_at, updated_at
+            product_handle, product_type, tags, created_at, updated_at, image_url
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) ON CONFLICT (variant_id) DO UPDATE SET
             product_id = EXCLUDED.product_id,
             inventory_item_id = EXCLUDED.inventory_item_id,
@@ -524,6 +536,7 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
             tags = EXCLUDED.tags,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at,
+            image_url = EXCLUDED.image_url,
             imported_at = CURRENT_TIMESTAMP
         """
         
@@ -568,7 +581,8 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
                 variant.get('product_type'),
                 variant.get('tags'),
                 created_at,
-                updated_at
+                updated_at,
+                variant.get('image_url')  # Ajouter l'URL de l'image
             ))
         
         # Exécuter l'insertion par batch (optimisé pour PostgreSQL)
@@ -587,16 +601,20 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
         cur.execute("SELECT COUNT(*) FROM products")
         total_count = cur.fetchone()[0]
         
-        # Compter les variants avec/sans COGS insérés
+        # Compter les variants avec/sans COGS et images insérés
         variants_with_cogs = len([v for v in variants_data if v.get('cogs') is not None])
         variants_without_cogs = len(variants_data) - variants_with_cogs
+        variants_with_images = len([v for v in variants_data if v.get('image_url') is not None])
+        variants_without_images = len(variants_data) - variants_with_images
         
         print(f"\n📊 Résultats d'insertion:")
         print(f"   • Variants traités: {len(variants_data)}")
         print(f"   • Avec COGS: {variants_with_cogs}")
         print(f"   • Sans COGS: {variants_without_cogs}")
+        print(f"   • Avec images: {variants_with_images}")
+        print(f"   • Sans images: {variants_without_images}")
         print(f"   • Total en base: {total_count:,}")
-        print(f"   ✅ Tous les variants ont été insérés, même ceux sans COGS")
+        print(f"   ✅ Tous les variants ont été insérés avec leurs images (si disponibles)")
         
         return {
             "inserted": inserted, 
@@ -604,7 +622,9 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
             "errors": 0, 
             "total": total_count,
             "with_cogs": variants_with_cogs,
-            "without_cogs": variants_without_cogs
+            "without_cogs": variants_without_cogs,
+            "with_images": variants_with_images,
+            "without_images": variants_without_images
         }
         
     except Exception as e:
