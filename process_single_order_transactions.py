@@ -161,9 +161,18 @@ def process_single_order_transactions(order_id):
         # Afficher un aperçu des transactions
         print("\n📋 Aperçu des transactions récupérées:")
         for i, transaction in enumerate(transactions[:5]):  # Afficher les 5 premières
+            shop_amount = transaction.get('shop_amount', 0)
+            amount_currency = transaction.get('amount_currency')
+            currency = transaction.get('transaction_currency', 'USD')
+            
+            # Afficher le montant local s'il existe, sinon le montant shop
+            if amount_currency is not None and currency != 'USD':
+                amount_display = f"{amount_currency} {currency} (USD: {shop_amount})"
+            else:
+                amount_display = f"{shop_amount} USD"
+                
             print(f"   {i+1}. {transaction.get('transaction_description', 'N/A')} - "
-                  f"{transaction.get('amount', 0)} {transaction.get('transaction_currency', 'USD')} - "
-                  f"{transaction.get('account_type', 'N/A')}")
+                  f"{amount_display} - {transaction.get('account_type', 'N/A')}")
         
         if len(transactions) > 5:
             print(f"   ... et {len(transactions) - 5} autres transactions")
@@ -220,10 +229,12 @@ def process_single_order_transactions(order_id):
             "transactions_details": [
                 {
                     "description": t.get('transaction_description'),
-                    "amount": t.get('amount'),
+                    "shop_amount": t.get('shop_amount'),
+                    "amount_currency": t.get('amount_currency'),
                     "currency": t.get('transaction_currency'),
                     "account_type": t.get('account_type'),
-                    "date": t.get('date')
+                    "date": t.get('date'),
+                    "exchange_rate": t.get('exchange_rate')
                 } for t in transactions
             ]
         }
@@ -257,7 +268,7 @@ def process_single_order_transactions(order_id):
 def main():
     """Fonction principale"""
     # ID de l'ordre à traiter
-    ORDER_ID = "6070870638663"
+    ORDER_ID = "6019367632967"
     
     print("🚀 SCRIPT DE TRAITEMENT COMPLET D'UN ORDRE SPÉCIFIQUE")
     print(f"Ordre cible: {ORDER_ID}")

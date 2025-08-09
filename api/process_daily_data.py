@@ -34,10 +34,6 @@ def process_daily_data(start_date, end_date):
     }
     
     try:
-        # 0. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
-        print("🛍️ Mise à jour incrémentale des produits...")
-        products_result = update_products_incremental()
-        print(f"📦 Produits: {products_result.get('message', 'Mis à jour')}")
         
         # 0.1. Update locations incrementally (check for new locations)
         print("🏢 Mise à jour incrémentale des locations...")
@@ -84,7 +80,12 @@ def process_daily_data(start_date, end_date):
         recuperer_et_enregistrer_versements_jour(day_date)
         response_data["success"] = True
 
-        # 6. Prepare response based on results
+        # 6. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
+        print("🛍️ Mise à jour incrémentale des produits...")
+        products_result = update_products_incremental()
+        print(f"📦 Produits: {products_result.get('message', 'Mis à jour')}")
+
+        # 7. Prepare response based on results
         if result.get("errors") and len(result.get("errors", [])) > 0 or result_transactions.get("errors") and len(result_transactions.get("errors", [])) > 0 or draft_result.get("errors") and len(draft_result.get("errors", [])) > 0:
             # Il y a eu des erreurs, mais nous avons quand même des statistiques
             response_data["success"] = False
