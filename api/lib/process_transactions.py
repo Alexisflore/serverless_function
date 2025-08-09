@@ -545,7 +545,7 @@ def extract_duties_transactions(order: Dict[str, Any], order_id: str, client_id:
                     "client_id": client_id,
                     "type": "duties_charge",
                     "account_type": "Duties",
-                    "transaction_description": f"Duties: {line_item.get('name', 'Line Item Duty')} (Non-fulfilled)",
+                    "transaction_description": f"Duties: {line_item.get('name', 'Line Item Duty')}",
                     "shop_amount": shop_amount,
                     "amount_currency": presentment_amount,
                     "transaction_currency": presentment_currency,
