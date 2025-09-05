@@ -715,16 +715,3 @@ def update_products_full_sync() -> Dict[str, Any]:
             "message": f"Erreur: {str(e)}",
             "details": {"inserted": 0, "updated": 0, "errors": 1, "total": 0}
         }
-
-# Fonctions dépréciées (maintenues pour compatibilité)
-def get_latest_product_date() -> Optional[str]:
-    """DÉPRÉCIÉ: Utilise get_latest_product_update_date() à la place"""
-    return get_latest_product_update_date()
-
-def get_new_shopify_products(since_date: Optional[str] = None, use_updated_at: bool = False) -> Dict[str, Any]:
-    """DÉPRÉCIÉ: Utilise get_shopify_products_since() à la place"""
-    return get_shopify_products_since(since_date)
-
-def update_products_with_changes() -> Dict[str, Any]:
-    """DÉPRÉCIÉ: Utilise update_products_incremental() à la place"""
-    return update_products_incremental()
