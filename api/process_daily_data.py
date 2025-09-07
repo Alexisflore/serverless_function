@@ -13,6 +13,7 @@ from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
 from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders
+from api.lib.process_inventory_sync import sync_inventory_since_date
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -34,58 +35,59 @@ def process_daily_data(start_date, end_date):
     }
     
     try:
+        start_datetime = datetime.fromisoformat(start_date)
+        end_datetime = datetime.fromisoformat(end_date)
         
-        # 0.1. Update locations incrementally (check for new locations)
+        # 1. Update locations incrementally (check for new locations)
         print("🏢 Mise à jour incrémentale des locations...")
         locations_result = update_locations_incremental()
         print(f"📍 Locations: {locations_result.get('message', 'Mis à jour')}")
-        
-        # 0.2. Process draft orders between the dates
-        print("📝 Traitement des draft orders...")
-        try:
-            # Get all draft order transactions between the dates
-            draft_transactions = get_drafts_between_dates(start_date, end_date)
-            
-            # Process the draft order transactions
-            draft_result = process_draft_orders(draft_transactions)
-            print(f"📋 Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées")
-            
-        except Exception as e:
-            print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
-            draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
 
-        # 1. Get API data for the period
+        # 2. Get API data for the period
         orders = get_daily_orders(start_date, end_date)
-
         if not orders:
             response_data["success"] = True
             response_data["message"] = "Aucune commande à traiter pour cette période"
             response_data["analyzed_period"] = f"From {start_date} to {end_date}"
             return response_data
-
-        # 2. Process data and insert into database directly
         result = process_orders(orders)
 
-        # 3. Convert string dates to datetime objects for processing transactions
-        start_datetime = datetime.fromisoformat(start_date)
-        end_datetime = datetime.fromisoformat(end_date)
-
-        # 4. Process transactions for the specified date range
+        # 3. Process transactions for the specified date range
+        print("💰 Traitement des transactions...")
         transactions = get_transactions_between_dates(start_datetime, end_datetime)
-
-        # 5. Process transactions
         result_transactions = process_transactions(transactions)
+        print(f"📊 Transactions: {result_transactions.get('inserted', 0)} insérées, {result_transactions.get('updated', 0)} mises à jour, {result_transactions.get('skipped', 0)} ignorées")
 
+        # 4. Recuperer et enregistrer les versements pour la date
         day_date = start_date[:10]
         recuperer_et_enregistrer_versements_jour(day_date)
         response_data["success"] = True
 
-        # 6. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
+        # 5. Synchronize inventory data since start date
+        print("📦 Synchronisation de l'inventaire...")
+        try:
+            inventory_result = sync_inventory_since_date(start_datetime)
+            print(f"🏪 Inventaire: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour, {inventory_result['stats']['skipped']} ignorés")
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la synchronisation de l'inventaire: {str(e)}")
+            inventory_result = {"success": False, "error": str(e), "records_processed": 0, "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}}
+
+        # 6. Process draft orders between the dates
+        print("📝 Traitement des draft orders...")
+        try:
+            draft_transactions = get_drafts_between_dates(start_date, end_date)
+            draft_result = process_draft_orders(draft_transactions)
+            print(f"📋 Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
+            draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
+
+        # 7. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
         print("🛍️ Mise à jour incrémentale des produits...")
         products_result = update_products_incremental()
         print(f"📦 Produits: {products_result.get('message', 'Mis à jour')}")
 
-        # 7. Prepare response based on results
+        # 8. Prepare response based on results
         if result.get("errors") and len(result.get("errors", [])) > 0 or result_transactions.get("errors") and len(result_transactions.get("errors", [])) > 0 or draft_result.get("errors") and len(draft_result.get("errors", [])) > 0:
             # Il y a eu des erreurs, mais nous avons quand même des statistiques
             response_data["success"] = False
@@ -106,7 +108,7 @@ def process_daily_data(start_date, end_date):
         })
         
         return response_data
-        
+
     except Exception as e:
         # Capture et log de l'erreur complète
         error_details = traceback.format_exc()

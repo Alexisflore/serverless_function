@@ -68,8 +68,6 @@ def get_draft_orders_between_dates(start: datetime, end: datetime) -> List[Dict[
     while url:
         print(f"Récupération des draft orders depuis: {url}")
         resp = requests.get(url, headers=_shopify_headers())
-        print(resp.text)
-        print(resp.status_code)
         if not resp.ok:
             print(f"[Draft Orders] {resp.status_code}: {resp.text}")
             break
