@@ -227,6 +227,7 @@ def insert_order(order_data):
     stats = {
         "orders_inserted": 0,
         "orders_skipped": 0,
+        "orders_id_to_skip": [],
         "orders_updated": 0,
         "orders_test_filtered": 0,
         "order_details_inserted": 0,
@@ -250,8 +251,6 @@ def insert_order(order_data):
         logger.error(error_msg)
         stats["errors"].append(error_msg)
         return stats
-    
-    logger.info(f"Début du traitement de {len(orders)} commandes")
     
     try:
         conn = get_db_connection()
@@ -277,14 +276,12 @@ def insert_order(order_data):
                     stats["errors"].append(error_msg)
                     continue
 
-                # Log pour déboguer
-                logger.info(f"Traitement de la commande ID: {order_id}, Nom: {order.get('name', 'N/A')}")
-
                 # Vérifier si c'est une commande de test à filtrer
                 tags_str = order.get('tags', '')
                 if is_test_order(tags_str):
                     logger.info(f"Commande de test filtrée (tag TEST_order_Shopify détecté): {order_id}")
                     stats["orders_test_filtered"] += 1
+                    stats["orders_id_to_skip"].append(str(order_id))
                     continue
 
                 tags_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()] if tags_str else []
@@ -515,7 +512,6 @@ def insert_order(order_data):
                 
                 # Traitement des lignes d'articles (order details)
                 line_items = order.get('line_items', [])
-                logger.info(f"Traitement de {len(line_items)} lignes d'articles pour la commande {order_id}")
                 
                 # Insérer chaque ligne d'article dans la table orders_details
                 for line_item in line_items:
@@ -633,7 +629,6 @@ def insert_order(order_data):
                         
                         if detail_result and detail_result[0]:
                             stats["order_details_inserted"] += 1
-                            logger.info(f"Détail de commande {detail_result[0]} inséré avec succès pour la commande {order_id}")
                         else:
                             error_msg = f"Erreur: insertion de détail échouée pour l'article {line_item_id} de la commande {order_id}"
                             logger.error(error_msg)

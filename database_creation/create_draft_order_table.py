@@ -24,7 +24,6 @@ def create_draft_order_table():
 
     try:
         # Connexion à la base de données
-        print("Connexion à la base de données...")
         conn = psycopg2.connect(db_url)
 
         # Création d'un curseur

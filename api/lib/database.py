@@ -344,8 +344,6 @@ def send_data_to_supabase(processed_data):
                     stats["skipped"] += 1
                     continue
                 
-                logger.info(f"Traitement de la commande ID: {order_id}")
-                
                 # Préparer les colonnes et les valeurs pour l'insertion
                 columns = []
                 values = []

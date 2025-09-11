@@ -1232,7 +1232,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
 # 4. Fenêtrage dans le temps
 # ---------------------------------------------------------------------------
 
-def get_transactions_between_dates(start: datetime, end: datetime) -> List[Dict]:
+def get_transactions_between_dates(start: datetime, end: datetime, orders_id_to_skip: List[str]) -> List[Dict]:
     print(f"Recherche des transactions entre {start.isoformat()} et {end.isoformat()}")
     formatted_start = start.isoformat()
     formatted_end = end.isoformat()
@@ -1252,19 +1252,21 @@ def get_transactions_between_dates(start: datetime, end: datetime) -> List[Dict]
     txs: List[Dict] = []
     orders = resp.json().get("orders", [])
     print(f"Nombre de commandes trouvées: {len(orders)}")
+    print(f"Commandes à ignorer: {orders_id_to_skip}")
     
     for order in orders:
         order_id = str(order["id"])
+        if order_id in orders_id_to_skip:
+            print(f"Commande {order_id} à ignorer")
+            continue
         print(f"Traitement de la commande: {order_id}")
         txs.extend(get_transactions_by_order(order_id))
-    
-    print(f"Total des transactions extraites: {len(txs)}")
-    return txs
 
+    return txs
 
 def get_transactions_since_date(dt_since: datetime):
     print(f"Récupération des transactions depuis {dt_since.isoformat()}")
-    return get_transactions_between_dates(dt_since, datetime.now())
+    return get_transactions_between_dates(dt_since, datetime.now(), [])
 
 
 # ---------------------------------------------------------------------------
@@ -1287,7 +1289,6 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         print("Aucune transaction à traiter.")
         return stats
 
-    print("Connexion à la base de données...")
     conn = _pg_connect()
     cur = conn.cursor()
 
@@ -1501,7 +1502,6 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     finally:
         cur.close()
         conn.close()
-        print("Connexion DB fermée.")
 
     print(f"Fin du traitement: {stats['inserted']} insérées, {stats['updated']} mises à jour, {stats['skipped']} ignorées")
     return stats

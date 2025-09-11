@@ -326,7 +326,6 @@ def recuperer_et_enregistrer_versements_jour(
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT 1")  # test
-        logger.info("Connexion DB OK")
 
         # requête payouts du jour
         url = (
@@ -420,7 +419,6 @@ def recuperer_et_enregistrer_versements_jour(
             # 2°) insert payout_transaction
             for tx in formatted_tx:
                 try:
-                    print(f"transaction: {tx}")
                     # Vérifier si la transaction existe déjà et la supprimer si c'est le cas
                     cur.execute("SELECT id FROM payout_transaction WHERE id = %s", (tx["id"],))
                     if cur.fetchone():
@@ -479,7 +477,6 @@ def recuperer_et_enregistrer_versements_jour(
         stats["transactions_skipped"],
         len(stats["errors"]),
     )
-    print(json.dumps(stats, indent=2, default=str))
     return stats
 
 

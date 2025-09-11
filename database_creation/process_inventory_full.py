@@ -295,7 +295,6 @@ def process_inventory_records_batch(records: List[Dict[str, Any]], batch_size: i
         print("⚠️ Aucun enregistrement à traiter.")
         return stats
 
-    print("🔌 Connexion à la base de données...")
     conn = _pg_connect()
     cur = conn.cursor()
 
@@ -400,7 +399,6 @@ def process_inventory_records_batch(records: List[Dict[str, Any]], batch_size: i
     finally:
         cur.close()
         conn.close()
-        print("🔌 Connexion DB fermée.")
 
     print(f"📊 Fin du traitement: {stats['inserted']} insérés, {stats['updated']} mis à jour, {stats['skipped']} ignorés")
     if stats['errors']:

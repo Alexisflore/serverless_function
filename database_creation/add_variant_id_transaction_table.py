@@ -38,8 +38,7 @@ def check_column_exists(cursor, table_name, column_name):
 
 def add_variant_id_column():
     """Ajoute la colonne variant_id à la table transaction."""
-    
-    print("Connexion à la base de données...")
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()

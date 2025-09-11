@@ -50,7 +50,6 @@ def get_draft_orders_between_dates(start: datetime, end: datetime) -> List[Dict[
     """
     Récupère tous les draft orders créés ou mis à jour entre les dates spécifiées
     """
-    print(f"Récupération des draft orders entre {start.isoformat()} et {end.isoformat()}")
     
     store_domain = "adam-lippes.myshopify.com"
     api_version = "2024-10"
@@ -68,7 +67,6 @@ def get_draft_orders_between_dates(start: datetime, end: datetime) -> List[Dict[
     all_drafts = []
     
     while url:
-        print(f"Récupération des draft orders depuis: {url}")
         resp = requests.get(url, headers=_shopify_headers())
         if not resp.ok:
             print(f"[Draft Orders] {resp.status_code}: {resp.text}")
@@ -88,13 +86,11 @@ def get_draft_orders_between_dates(start: datetime, end: datetime) -> List[Dict[
                 if 'rel="next"' in link:
                     url = link.split('<')[1].split('>')[0]
                     break
-    
-    print(f"Total des draft orders récupérés: {len(all_drafts)}")
+
     return all_drafts
 
 def get_draft_orders_since_date(dt_since: datetime) -> List[Dict[str, Any]]:
     """Récupère les draft orders depuis une date donnée"""
-    print(f"Récupération des draft orders depuis {dt_since.isoformat()}")
     return get_draft_orders_between_dates(dt_since, datetime.now())
 
 # ---------------------------------------------------------------------------
@@ -264,8 +260,6 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
             stats["transactions_skipped"] += 1
     
     print(f"Transactions groupées par draft_id: {len(transactions_by_draft_id)} draft orders à traiter")
-    
-    print("Connexion à la base de données...")
     conn = _pg_connect()
     cur = conn.cursor()
     
@@ -372,7 +366,6 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
         # Close cursor and connection
         cur.close()
         conn.close()
-        print("🔌 Connexion DB fermée.")
 
     print(f"\n📊 Résultats finaux:")
     print(f"  - Draft orders traités: {stats['draft_orders_processed']}")
@@ -409,8 +402,6 @@ def get_drafts_between_dates(start_date, end_date) -> List[Dict[str, Any]]:
             # Try without timezone info
             end_date = datetime.fromisoformat(end_date)
     
-    print(f"Récupération des draft orders entre {start_date} et {end_date}")
-    
     # Récupère tous les draft orders entre les dates
     draft_orders = get_draft_orders_between_dates(start_date, end_date)
     
@@ -442,8 +433,6 @@ def get_drafts_since_date(last_processed_date) -> List[Dict[str, Any]]:
             # Try without timezone info
             last_processed_date = datetime.fromisoformat(last_processed_date)
     
-    print(f"Récupération des draft orders depuis: {last_processed_date}")
-    
     # Récupère tous les draft orders depuis la date
     draft_orders = get_draft_orders_since_date(last_processed_date)
     
@@ -471,7 +460,6 @@ def find_last_draft_order_date() -> datetime:
     
     try:
         # Connect to the database
-        print("Connexion à la base de données...")
         conn = _pg_connect()
         cur = conn.cursor()
         

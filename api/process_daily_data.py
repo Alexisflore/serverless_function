@@ -54,7 +54,7 @@ def process_daily_data(start_date, end_date):
 
         # 3. Process transactions for the specified date range
         print("💰 Traitement des transactions...")
-        transactions = get_transactions_between_dates(start_datetime, end_datetime)
+        transactions = get_transactions_between_dates(start_datetime, end_datetime, result.get("orders_id_to_skip", []))
         result_transactions = process_transactions(transactions)
         print(f"📊 Transactions: {result_transactions.get('inserted', 0)} insérées, {result_transactions.get('updated', 0)} mises à jour, {result_transactions.get('skipped', 0)} ignorées")
 

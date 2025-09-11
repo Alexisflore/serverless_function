@@ -39,8 +39,6 @@ def get_daily_draft_orders(start_date, end_date):
     draft_orders = []
     page_count = 1
     
-    print(f"🔍 Récupération des draft orders entre {start_date} et {end_date}")
-    
     while url:
         print(f"📄 Page {page_count}...")
         response = requests.get(url, headers=headers, params=params)
