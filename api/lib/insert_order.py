@@ -153,6 +153,37 @@ def extract_market_from_tags(tags_str):
         logger.warning(f"Erreur extraction market: {tags_str} - {str(e)}")
         return "US"
 
+def is_test_order(tags_str):
+    """
+    Vérifie si une commande est une commande de test en cherchant le tag TEST_order_Shopify
+    
+    Args:
+        tags_str (str): Chaîne contenant les tags
+        
+    Returns:
+        bool: True si c'est une commande de test, False sinon
+    """
+    if not tags_str or tags_str.strip() == '':
+        return False
+        
+    tags_list = parse_tags_to_list(tags_str)
+    
+    if not tags_list:
+        return False
+        
+    try:
+        # Chercher le tag TEST_order_Shopify (insensible à la casse)
+        for tag in tags_list:
+            tag_clean = tag.strip()
+            if tag_clean.lower() == 'test_order_shopify':
+                return True
+        
+        return False
+        
+    except Exception as e:
+        logger.warning(f"Erreur vérification test order: {tags_str} - {str(e)}")
+        return False
+
 def extract_tax_lines(tax_lines, index=0):
     """
     Extrait les informations d'une ligne de taxe spécifique
@@ -197,6 +228,7 @@ def insert_order(order_data):
         "orders_inserted": 0,
         "orders_skipped": 0,
         "orders_updated": 0,
+        "orders_test_filtered": 0,
         "order_details_inserted": 0,
         "order_details_errors": 0,
         "errors": []
@@ -248,7 +280,14 @@ def insert_order(order_data):
                 # Log pour déboguer
                 logger.info(f"Traitement de la commande ID: {order_id}, Nom: {order.get('name', 'N/A')}")
 
-                tags_list = [tag.strip() for tag in order.get('tags', '').split(',') if tag.strip()] if order.get('tags', '') else []
+                # Vérifier si c'est une commande de test à filtrer
+                tags_str = order.get('tags', '')
+                if is_test_order(tags_str):
+                    logger.info(f"Commande de test filtrée (tag TEST_order_Shopify détecté): {order_id}")
+                    stats["orders_test_filtered"] += 1
+                    continue
+
+                tags_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()] if tags_str else []
                 source_location = get_source_location(tags_list)
                 # Mapping des champs selon le mapping fourni
                 # Format : "colonne_supabase": source dans le JSON Shopify
@@ -634,7 +673,7 @@ def insert_order(order_data):
         if conn:
             conn.close()
     
-    logger.info(f"Fin du traitement: {stats['orders_inserted']} insérées, {stats['orders_updated']} mises à jour, {stats['orders_skipped']} ignorées, {stats['order_details_inserted']} détails insérés, {stats['order_details_errors']} erreurs de détails, {len(stats['errors'])} erreurs totales")
+    logger.info(f"Fin du traitement: {stats['orders_inserted']} insérées, {stats['orders_updated']} mises à jour, {stats['orders_skipped']} ignorées, {stats['orders_test_filtered']} commandes de test filtrées, {stats['order_details_inserted']} détails insérés, {stats['order_details_errors']} erreurs de détails, {len(stats['errors'])} erreurs totales")
     return stats
 
 if __name__ == "__main__":
