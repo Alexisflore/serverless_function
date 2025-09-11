@@ -4,6 +4,7 @@ import json
 import logging
 from dotenv import load_dotenv
 from datetime import datetime
+from api.lib.utils import get_source_location
 
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
@@ -246,7 +247,9 @@ def insert_order(order_data):
 
                 # Log pour déboguer
                 logger.info(f"Traitement de la commande ID: {order_id}, Nom: {order.get('name', 'N/A')}")
-                
+
+                tags_list = [tag.strip() for tag in order.get('tags', '').split(',') if tag.strip()] if order.get('tags', '') else []
+                source_location = get_source_location(tags_list)
                 # Mapping des champs selon le mapping fourni
                 # Format : "colonne_supabase": source dans le JSON Shopify
                 order_mapped = {
@@ -284,7 +287,7 @@ def insert_order(order_data):
                     "landing_site": order.get('landing_site'),             # landing_site
                     "referring_site": order.get('referring_site'),         # referring_site
                     "source_name": order.get('source_name'),               # source_name
-                    
+
                     # Informations de facturation
                     "billing_first_name": get_nested_value(order, 'billing_address > first_name'),
                     "billing_address1": get_nested_value(order, 'billing_address > address1'),
@@ -331,6 +334,7 @@ def insert_order(order_data):
                     # Tags et market
                     "tags_list": parse_tags_to_list(order.get('tags', '')),  # tags parsés en array JSON
                     "market": extract_market_from_tags(order.get('tags', 'US')),  # market extrait des tags
+                    "source_location": source_location,  # source_location extrait des tags
 
                     "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None
                 }

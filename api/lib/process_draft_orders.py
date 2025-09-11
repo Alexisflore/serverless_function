@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import psycopg2
 from typing import List, Dict, Any
+from collections import defaultdict
+from api.lib.utils import get_source_location
 
 load_dotenv()
 
@@ -112,12 +114,17 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
     created_at = draft_order.get("created_at")
     completed_at = draft_order.get("completed_at")
     order_id = draft_order.get("order_id")
+    tags = draft_order.get("tags", "")
+    
+    # Convert tags string to list for get_source_location function
+    tags_list = [tag.strip() for tag in tags.split(',') if tag.strip()] if tags else []
     
     # Debug: Afficher les informations importantes du draft order
     print(f"  - Status: {status}")
     print(f"  - Created at: {created_at}")
     print(f"  - Completed at: {completed_at}")
     print(f"  - Order ID: {order_id}")
+    print(f"  - Tags: {tags}")
     if order_id is None:
         print(f"  - ⚠️  Order ID est null car le draft order n'est pas encore finalisé (status: {status})")
     else:
@@ -158,6 +165,7 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "transaction_currency": currency,
             "source_name": "draft_order",
             "quantity": quantity,
+            "source_location": get_source_location(tags_list),
         }
         transactions.append(item_transaction)
         
@@ -186,6 +194,7 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "transaction_currency": currency,
                 "source_name": "draft_order",
                 "quantity": quantity,
+                "source_location": get_source_location(tags_list),
             }
             transactions.append(tax_transaction)
     
@@ -213,6 +222,7 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "transaction_currency": currency,
             "source_name": "draft_order",
             "quantity": 1,
+            "source_location": get_source_location(tags_list),
         }
         transactions.append(shipping_transaction)
     
@@ -220,19 +230,22 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
     return transactions
 
 # ---------------------------------------------------------------------------
-# 4. Persistance en base
+# 4. Persistance en base - NOUVELLE LOGIQUE
 # ---------------------------------------------------------------------------
 
 def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Processes a list of draft order transactions and inserts them into the database
+    Processes a list of draft order transactions and inserts them into the database.
+    Groups transactions by draft_id. For each draft_id, if it already exists in the database,
+    all existing entries for that draft_id are deleted before inserting the new transactions.
     """
     print(f"Traitement de {len(draft_transactions)} transactions de draft orders...")
     
     stats = {
         "transactions_inserted": 0,
-        "transactions_updated": 0, 
+        "transactions_deleted": 0,
         "transactions_skipped": 0,
+        "draft_orders_processed": 0,
         "errors": []
     }
     
@@ -240,138 +253,134 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
         print("Aucune transaction à traiter.")
         return stats
     
+    # Group transactions by draft_id
+    transactions_by_draft_id = defaultdict(list)
+    for transaction in draft_transactions:
+        draft_id = transaction.get("_draft_id")
+        if draft_id:
+            transactions_by_draft_id[draft_id].append(transaction)
+        else:
+            stats["errors"].append("Transaction without _draft_id found")
+            stats["transactions_skipped"] += 1
+    
+    print(f"Transactions groupées par draft_id: {len(transactions_by_draft_id)} draft orders à traiter")
+    
     print("Connexion à la base de données...")
     conn = _pg_connect()
     cur = conn.cursor()
     
-    # Requêtes SQL
-    check_query = """
-        SELECT id FROM draft_order 
-        WHERE _draft_id = %s AND account_type = %s AND type = %s 
-        AND transaction_description = %s AND amount = %s
-    """
-    
+    # SQL queries
+    check_draft_exists_query = "SELECT COUNT(*) FROM draft_order WHERE _draft_id = %s"
+    delete_draft_query = "DELETE FROM draft_order WHERE _draft_id = %s"
     insert_query = """
         INSERT INTO draft_order (
             _draft_id, created_at, completed_at, order_id, client_id,
             product_id, type, account_type, transaction_description,
-            amount, status, transaction_currency, source_name, quantity
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    
-    update_query = """
-        UPDATE draft_order SET
-        created_at = %s,
-        completed_at = %s,
-        order_id = %s,
-        client_id = %s,
-        product_id = %s,
-        account_type = %s,
-        transaction_currency = %s,
-        source_name = %s,
-        status = %s,
-        quantity = %s,
-        updated_at_timestamp = CURRENT_TIMESTAMP
-        WHERE id = %s
+            amount, status, transaction_currency, source_name, quantity, source_location
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
-        for i, transaction in enumerate(draft_transactions):
-            if i % 50 == 0 and i > 0:
-                print(f"Progression: {i}/{len(draft_transactions)} transactions traitées")
+        for draft_id, transactions in transactions_by_draft_id.items():
+            print(f"\n📋 Traitement du draft_id: {draft_id} ({len(transactions)} transactions)")
             
             try:
-                # For client_id, which cannot be NULL, use -1 as default
-                if transaction.get('client_id') is None or transaction.get('client_id') == 'N/A':
-                    transaction['client_id'] = -1
+                # Check if draft_id already exists in database
+                cur.execute(check_draft_exists_query, (draft_id,))
+                existing_count = cur.fetchone()[0]
                 
-                # Convert date strings to datetime if they're strings
-                created_at = transaction["created_at"]
-                if isinstance(created_at, str):
-                    created_at = _iso_to_dt(created_at)
-                
-                # Handle completed_at which can be NULL
-                completed_at = transaction.get("completed_at")
-                if completed_at and isinstance(completed_at, str):
-                    completed_at = _iso_to_dt(completed_at)
-                
-                # Check if transaction already exists
-                check_params = (
-                    transaction["_draft_id"],
-                    transaction["account_type"],
-                    transaction["type"],
-                    transaction["transaction_description"],
-                    transaction["amount"]
-                )
-                
-                cur.execute(check_query, check_params)
-                existing_id = cur.fetchone()
-                
-                if existing_id:
-                    # Transaction already exists, update it
-                    update_params = (
-                        created_at,
-                        completed_at,
-                        transaction.get("order_id"),
-                        transaction["client_id"],
-                        transaction.get("product_id"),
-                        transaction["account_type"],
-                        transaction["transaction_currency"],
-                        transaction.get("source_name"),
-                        transaction.get("status"),
-                        transaction.get("quantity", 1),
-                        existing_id[0]
-                    )
+                if existing_count > 0:
+                    print(f"  - ⚠️  Draft_id {draft_id} existe déjà en base ({existing_count} transactions)")
+                    print(f"  - 🗑️  Suppression de toutes les transactions existantes pour ce draft_id...")
                     
-                    cur.execute(update_query, update_params)
-                    stats["transactions_updated"] += 1
-                    
+                    # Delete all existing transactions for this draft_id
+                    cur.execute(delete_draft_query, (draft_id,))
+                    deleted_count = cur.rowcount
+                    stats["transactions_deleted"] += deleted_count
+                    print(f"  - ✅ {deleted_count} transactions supprimées")
                 else:
-                    # Transaction doesn't exist, insert it
-                    insert_params = (
-                        transaction["_draft_id"],
-                        created_at,
-                        completed_at,
-                        transaction.get("order_id"),
-                        transaction["client_id"],
-                        transaction.get("product_id"),
-                        transaction["type"],
-                        transaction["account_type"],
-                        transaction["transaction_description"],
-                        transaction["amount"],
-                        transaction.get("status"),
-                        transaction["transaction_currency"],
-                        transaction.get("source_name"),
-                        transaction.get("quantity", 1)
-                    )
-                    
-                    cur.execute(insert_query, insert_params)
-                    stats["transactions_inserted"] += 1
-                    
+                    print(f"  - ✅ Draft_id {draft_id} n'existe pas en base, insertion directe")
+                
+                # Insert all transactions for this draft_id
+                print(f"  - 📥 Insertion de {len(transactions)} nouvelles transactions...")
+                
+                for i, transaction in enumerate(transactions):
+                    try:
+                        # For client_id, which cannot be NULL, use -1 as default
+                        if transaction.get('client_id') is None or transaction.get('client_id') == 'N/A':
+                            transaction['client_id'] = -1
+                        
+                        # Convert date strings to datetime if they're strings
+                        created_at = transaction["created_at"]
+                        if isinstance(created_at, str):
+                            created_at = _iso_to_dt(created_at)
+                        
+                        # Handle completed_at which can be NULL
+                        completed_at = transaction.get("completed_at")
+                        if completed_at and isinstance(completed_at, str):
+                            completed_at = _iso_to_dt(completed_at)
+                        
+                        # Insert transaction
+                        insert_params = (
+                            transaction["_draft_id"],
+                            created_at,
+                            completed_at,
+                            transaction.get("order_id"),
+                            transaction["client_id"],
+                            transaction.get("product_id"),
+                            transaction["type"],
+                            transaction["account_type"],
+                            transaction["transaction_description"],
+                            transaction["amount"],
+                            transaction.get("status"),
+                            transaction["transaction_currency"],
+                            transaction.get("source_name"),
+                            transaction.get("quantity", 1),
+                            transaction.get("source_location"),
+                        )
+                        
+                        cur.execute(insert_query, insert_params)
+                        stats["transactions_inserted"] += 1
+                        
+                    except Exception as e:
+                        error_msg = f"Error inserting transaction {i+1} for draft_id {draft_id}: {str(e)}"
+                        print(f"    - ERREUR: {error_msg}")
+                        stats["errors"].append(error_msg)
+                        stats["transactions_skipped"] += 1
+                
+                stats["draft_orders_processed"] += 1
+                print(f"  - ✅ Draft_id {draft_id} traité avec succès")
+                
             except Exception as e:
-                error_msg = f"Error processing draft order transaction {transaction.get('_draft_id')}: {str(e)}"
+                error_msg = f"Error processing draft_id {draft_id}: {str(e)}"
                 print(f"  - ERREUR: {error_msg}")
                 stats["errors"].append(error_msg)
-                stats["transactions_skipped"] += 1
-                
+                # Continue with next draft_id
+        
         # Commit all changes
-        print("Validation des changements (commit)...")
+        print(f"\n💾 Validation des changements (commit)...")
         conn.commit()
-        print("Commit réussi.")
+        print("✅ Commit réussi.")
         
     except Exception as e:
         conn.rollback()
         error_msg = f"Database error: {str(e)}"
-        print(f"ERREUR DATABASE: {error_msg}")
+        print(f"❌ ERREUR DATABASE: {error_msg}")
         stats["errors"].append(error_msg)
         
     finally:
         # Close cursor and connection
         cur.close()
         conn.close()
-        print("Connexion DB fermée.")
-            
-    print(f"Résultats: {stats['transactions_inserted']} insérées, {stats['transactions_updated']} mises à jour, {stats['transactions_skipped']} ignorées")
+        print("🔌 Connexion DB fermée.")
+
+    print(f"\n📊 Résultats finaux:")
+    print(f"  - Draft orders traités: {stats['draft_orders_processed']}")
+    print(f"  - Transactions supprimées: {stats['transactions_deleted']}")
+    print(f"  - Transactions insérées: {stats['transactions_inserted']}")
+    print(f"  - Transactions ignorées: {stats['transactions_skipped']}")
+    print(f"  - Erreurs: {len(stats['errors'])}")
+    
     return stats
 
 # ---------------------------------------------------------------------------
@@ -519,7 +528,7 @@ if __name__ == '__main__':
     result = process_draft_orders(draft_transactions)
     
     print("=== Fin du traitement des draft orders ===")
-    print(f"Draft orders processed: {result['transactions_inserted']} inserted, {result['transactions_updated']} updated, {result['transactions_skipped']} skipped")
+    print(f"Draft orders processed: {result['transactions_inserted']} inserted, {result['transactions_deleted']} deleted, {result['transactions_skipped']} skipped")
     if result['errors']:
         print(f"Errors: {len(result['errors'])}")
         for error in result['errors'][:5]:  # Show first 5 errors
