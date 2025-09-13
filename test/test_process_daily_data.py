@@ -130,7 +130,6 @@ def test_check_and_update_order(use_real_data=False):
     
     try:
         # Établir la connexion
-        print("Connexion à la base de données...")
         conn = psycopg2.connect(db_url, connect_timeout=10)
         cur = conn.cursor()
         
