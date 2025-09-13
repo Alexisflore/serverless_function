@@ -44,6 +44,7 @@ def process_daily_data(start_date, end_date):
         print(f"📍 Locations: {locations_result.get('message', 'Mis à jour')}")
 
         # 2. Get API data for the period
+        print(f"📅 Traitement des orders pour la période {start_date} à {end_date}")
         orders = get_daily_orders(start_date, end_date)
         if not orders:
             response_data["success"] = True
