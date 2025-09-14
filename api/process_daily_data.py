@@ -14,6 +14,7 @@ from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
 from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders
 from api.lib.process_inventory_sync import sync_inventory_since_date
+from api.lib.process_customer import sync_customers_since_date
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -83,6 +84,15 @@ def process_daily_data(start_date, end_date):
             print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
             draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
 
+        # 6.1 Process customers between the dates
+        print("📝 Traitement des customers...")
+        try:
+            result_customers = sync_customers_since_date(end_datetime)
+            print(f"📋 Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du traitement des customers: {str(e)}")
+            result_customers = {"customers_inserted": 0, "customers_updated": 0, "customers_skipped": 0, "errors": [str(e)]}
+
         # 7. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
         print("🛍️ Mise à jour incrémentale des produits...")
         products_result = update_products_incremental()
@@ -105,7 +115,8 @@ def process_daily_data(start_date, end_date):
             "transactions_processed": f"{len(transactions)} transactions traitées avec succès",
             "products_synchronized": products_result.get('details', {}).get('inserted', 0),
             "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0),
-            "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées"
+            "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées",
+            "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées"
         })
         
         return response_data
