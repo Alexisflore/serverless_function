@@ -299,7 +299,7 @@ def insert_order(order_data):
                     "confirmed": order.get('confirmed'),                   # confirmed
                     "financial_status": order.get('financial_status'),     # financial_status
                     "fulfillment_status": order.get('fulfillment_status') or "unfulfilled", # fulfillment_status
-                    "location_id": order.get('location_id'),               # location_id
+                    "location_id": source_location or order.get('location_id'),               # location_id
                     
                     # Contact et dates
                     "contact_email": order.get('contact_email'),           # contact_email
