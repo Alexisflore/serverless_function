@@ -19,7 +19,7 @@ def get_dates():
     
     return yesterday_start.isoformat(), today_plus_one_start.isoformat()
 
-def get_source_location(tags: List[str]) -> Optional[str]:
+def get_source_location(tags: List[str]) -> Optional[int]:
     """
     Get the source location from the tags.
     
@@ -30,10 +30,10 @@ def get_source_location(tags: List[str]) -> Optional[str]:
         tags: List of tag strings
         
     Returns:
-        location_id as string if found, None otherwise
+        location_id as int if found, None otherwise
         
     Example:
-        get_source_location(['STORE_Office_14378139719']) -> '14378139719'
+        get_source_location(['STORE_Office_14378139719']) -> 14378139719
     """
     for tag in tags:
         if tag.startswith("STORE_"):
@@ -43,7 +43,7 @@ def get_source_location(tags: List[str]) -> Optional[str]:
                 location_id = parts[-1]
                 # Verify it's numeric (location_id should be numeric)
                 if location_id.isdigit():
-                    return location_id
+                    return int(location_id)
     return None
 
 if __name__ == "__main__":
