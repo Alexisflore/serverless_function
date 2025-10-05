@@ -43,7 +43,6 @@ def _pg_connect():
         )
     return psycopg2.connect(db_url)
 
-
 def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int | None, name: str | None) -> int | None:
     """
     Récupère l'ID orders_details correspondant à un produit/variant d'une commande.
@@ -89,6 +88,89 @@ def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int
     except Exception as e:
         print(f"Erreur lors de la récupération de orders_details_id: {e}")
         return None
+
+
+def get_cogs_from_products(product_id: int | None, variant_id: int | None) -> float | None:
+    """
+    Récupère le COGS unitaire depuis la table products pour un produit/variant donné.
+    
+    Args:
+        product_id: ID du produit Shopify
+        variant_id: ID du variant Shopify
+    Returns:
+        Le COGS unitaire ou None si pas trouvé
+    """
+    if not product_id or not variant_id:
+        return None
+        
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+        
+        query = """
+            SELECT cogs 
+            FROM products 
+            WHERE product_id = %s AND variant_id = %s
+            LIMIT 1
+        """
+        cur.execute(query, [product_id, variant_id])
+        
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if result and result[0] is not None:
+            return float(result[0])
+        return None
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération du COGS: {e}")
+        return None
+
+
+def calculate_cogs_values(product_id: int | None, variant_id: int | None, quantity: int, account_type: str) -> tuple[float | None, float | None]:
+    """
+    Calcule les valeurs COGS unitaire et totale pour une transaction.
+    
+    Args:
+        product_id: ID du produit Shopify
+        variant_id: ID du variant Shopify
+        quantity: Quantité vendue/remboursée
+        account_type: Type de compte (Sales, Refunds, etc.)
+    Returns:
+        Tuple (cogs_unit, cogs_total) ou (None, None) si pas applicable
+    """
+    # Ne calculer les COGS que pour Sales et Refunds
+    if account_type not in ["Sales", "Refunds", "Returns"]:
+        return None, None
+    
+    cogs_unit = get_cogs_from_products(product_id, variant_id)
+    if cogs_unit is None:
+        return None, None
+    
+    # Pour les refunds/returns, les COGS sont négatifs (comme les montants)
+    if account_type in ["Refunds", "Returns"]:
+        cogs_unit = -abs(cogs_unit)
+    
+    cogs_total = cogs_unit * quantity
+    
+    return cogs_unit, cogs_total
+
+
+def add_cogs_to_transaction(transaction_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ajoute les champs COGS à une transaction si ils ne sont pas déjà présents.
+    
+    Args:
+        transaction_dict: Dictionnaire de transaction
+    Returns:
+        Dictionnaire de transaction avec les champs COGS ajoutés
+    """
+    if "cogs_unit" not in transaction_dict:
+        transaction_dict["cogs_unit"] = None
+    if "cogs_total" not in transaction_dict:
+        transaction_dict["cogs_total"] = None
+    return transaction_dict
 
 
 def _iso_to_dt(date_str: str) -> datetime:
@@ -223,6 +305,9 @@ def get_refund_details(
 
         # Ligne article remboursée
         orders_details_id = get_orders_details_id(order_id, product_id, li.get("variant_id"), li.get("name"))
+        
+        # Calculer les COGS pour ce remboursement
+        cogs_unit, cogs_total = calculate_cogs_values(product_id, variant_id, refund_quantity, "Returns")
 
         total_shop_tax_amount = 0
         total_presentment_tax_amount = 0
@@ -255,6 +340,8 @@ def get_refund_details(
                 "quantity": refund_quantity,
                 "exchange_rate": exchange_rate,
                 "shop_currency": tax_currency,
+                "cogs_unit": None,
+                "cogs_total": None,
             }
             items.append(taxe_line)
 
@@ -280,6 +367,8 @@ def get_refund_details(
                 "quantity": refund_quantity,
                 "exchange_rate": exchange_rate,
                 "shop_currency": shop_currency,
+                "cogs_unit": cogs_unit,
+                "cogs_total": cogs_total,
             }
         )
         # Duties au niveau des line items
@@ -934,6 +1023,10 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             # Multiplier par la quantité pour obtenir le montant total
             shop_amount = shop_amount * quantity
             presentment_amount = presentment_amount * quantity
+            
+            # Calculer les COGS pour cette transaction de vente
+            cogs_unit, cogs_total = calculate_cogs_values(product_id, variant_id, quantity, "Sales")
+            
             #  – vente brute HT
             transactions.append(
                 {
@@ -956,6 +1049,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                     "quantity": quantity,
                     "exchange_rate": exchange_rate,
                     "shop_currency": shop_currency,
+                    "cogs_unit": cogs_unit,
+                    "cogs_total": cogs_total,
                 }
             )
 
@@ -1072,6 +1167,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 }
             )
 
+        # Calculer les COGS pour cette transaction de vente non-expédiée
+        cogs_unit, cogs_total = calculate_cogs_values(product_id, variant_id, quantity, "Sales")
+        
         # Créer les transactions pour les line_items non-expédiés
         # Utiliser la date de création de la commande et un statut "pending"
         transactions.append(
@@ -1095,6 +1193,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "quantity": quantity,
                 "exchange_rate": exchange_rate,
                 "shop_currency": shop_currency,
+                "cogs_unit": cogs_unit,
+                "cogs_total": cogs_total,
             }
         )
     # ------------------------------------------------------------------ #
@@ -1158,6 +1258,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             amount_currency = None
             amount = tx_amount_local
 
+        # Calculer les COGS pour les transactions de remboursement financier
+        cogs_unit, cogs_total = None, None
+        
         transactions.append(
             {
                 "date": t.get("created_at"),
@@ -1182,6 +1285,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 "quantity": 1,  # Quantité par défaut pour les transactions financières globales
                 "exchange_rate": exchange_rate,
                 "shop_currency": shop_currency,
+                "cogs_unit": cogs_unit,
+                "cogs_total": cogs_total,
             }
         )
 
@@ -1222,6 +1327,9 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     tips_transactions = extract_tips_transactions(order, order_id, client_id, source_name, payment_method_name, taxes_included)
     transactions.extend(tips_transactions)
 
+    # Ajouter les champs COGS à toutes les transactions qui ne les ont pas déjà
+    transactions = [add_cogs_to_transaction(tx) for tx in transactions]
+    
     # Trie par date
     transactions.sort(key=lambda x: _iso_to_dt(x["date"]))
 
@@ -1296,8 +1404,9 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
             shop_amount, amount_currency, transaction_currency, location_id, source_name, status,
-            product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency,
+            cogs_unit, cogs_total
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """
 
     update_q = """
@@ -1316,6 +1425,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             quantity = %s,
             exchange_rate = %s,
             shop_currency = %s,
+            cogs_unit = %s,
+            cogs_total = %s,
             updated_at_timestamp = CURRENT_TIMESTAMP
         WHERE id = %s
     """
@@ -1371,6 +1482,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                             tx.get("quantity", 1),
                             tx.get("exchange_rate"),
                             tx.get("shop_currency"),
+                            tx.get("cogs_unit"),
+                            tx.get("cogs_total"),
                             existing[0],
                         ),
                     )
@@ -1409,6 +1522,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                     quantity = %s,
                                     exchange_rate = %s,
                                     shop_currency = %s,
+                                    cogs_unit = %s,
+                                    cogs_total = %s,
                                     updated_at_timestamp = CURRENT_TIMESTAMP
                                 WHERE id = %s
                             """
@@ -1430,6 +1545,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                     tx.get("quantity", 1),
                                     tx.get("exchange_rate"),
                                     tx.get("shop_currency"),
+                                    tx.get("cogs_unit"),
+                                    tx.get("cogs_total"),
                                     existing_id,
                                 ),
                             )
@@ -1458,6 +1575,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                     tx.get("quantity", 1),
                                     tx.get("exchange_rate"),
                                     tx.get("shop_currency"),
+                                    tx.get("cogs_unit"),
+                                    tx.get("cogs_total"),
                                 ),
                             )
                             stats["inserted"] += 1
@@ -1485,6 +1604,8 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                 tx.get("quantity", 1),
                                 tx.get("exchange_rate"),
                                 tx.get("shop_currency"),
+                                tx.get("cogs_unit"),
+                                tx.get("cogs_total"),
                             ),
                         )
                         stats["inserted"] += 1
