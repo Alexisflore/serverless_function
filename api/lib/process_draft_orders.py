@@ -136,6 +136,8 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
     
     # Currency - from draft order
     currency = draft_order.get("currency", "USD")
+    draft_order_name = draft_order.get("name")
+    draft_order_note = draft_order.get("note")
     
     # Process each line item
     for i, item in enumerate(line_items):
@@ -162,6 +164,12 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "source_name": "draft_order",
             "quantity": quantity,
             "source_location": get_source_location(tags_list),
+            "sku": item.get("sku"),
+            "variant_id": item.get("variant_id"),
+            "variant_title": item.get("variant_title"),
+            "name": item.get("name"),
+            "draft_order_name": draft_order_name,
+            "draft_order_note": draft_order_note,
         }
         transactions.append(item_transaction)
         
@@ -191,6 +199,12 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "source_name": "draft_order",
                 "quantity": quantity,
                 "source_location": get_source_location(tags_list),
+                "sku": item.get("sku"),
+                "variant_id": item.get("variant_id"),
+                "variant_title": item.get("variant_title"),
+                "name": item.get("name"),
+                "draft_order_name": draft_order_name,
+                "draft_order_note": draft_order_note,
             }
             transactions.append(tax_transaction)
     
@@ -219,6 +233,12 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "source_name": "draft_order",
             "quantity": 1,
             "source_location": get_source_location(tags_list),
+            "sku": None,
+            "variant_id": None,
+            "variant_title": None,
+            "name": None,
+            "draft_order_name": draft_order_name,
+            "draft_order_note": draft_order_note,
         }
         transactions.append(shipping_transaction)
     
@@ -270,8 +290,9 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
         INSERT INTO draft_order (
             _draft_id, created_at, completed_at, order_id, client_id,
             product_id, type, account_type, transaction_description,
-            amount, status, transaction_currency, source_name, quantity, source_location
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            amount, status, transaction_currency, source_name, quantity, source_location,
+            sku, variant_id, variant_title, name, draft_order_name, draft_order_note
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
@@ -331,6 +352,12 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
                             transaction.get("source_name"),
                             transaction.get("quantity", 1),
                             transaction.get("source_location"),
+                            transaction.get("sku"),
+                            transaction.get("variant_id"),
+                            transaction.get("variant_title"),
+                            transaction.get("name"),
+                            transaction.get("draft_order_name"),
+                            transaction.get("draft_order_note"),
                         )
                         
                         cur.execute(insert_query, insert_params)
