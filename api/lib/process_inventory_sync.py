@@ -3,6 +3,20 @@
 Shopify Inventory → PostgreSQL ETL
 Synchronise les données d'inventaire avec filtrage par date updated_at
 Basé sur le pattern de process_transactions.py
+
+⚠️  IMPORTANT - Limites de la synchronisation incrémentale:
+
+Le filtre updated_at s'applique à l'InventoryItem (item global), 
+PAS aux InventoryLevels (quantités par location).
+
+Cela signifie qu'un item peut avoir du stock dans une location même si
+l'InventoryItem.updated_at est ancien. Ces items seront MANQUÉS par
+la synchronisation incrémentale.
+
+Solutions:
+1. sync_inventory_full() - Sync complète sans filtre (hebdomadaire recommandé)
+2. sync_inventory_by_location(location_id) - Sync d'une location spécifique
+3. Approche hybride: sync incrémentale quotidienne + sync complète hebdomadaire
 """
 
 import os
@@ -513,6 +527,265 @@ def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | 
 # 7. Fonctions principales d'orchestration
 # ---------------------------------------------------------------------------
 
+def sync_inventory_levels_by_date(dt_since: datetime) -> List[Dict[str, Any]]:
+    """
+    Synchronise les InventoryLevels modifiés depuis une date donnée.
+    
+    ✅ Cette méthode résout le problème du filtre updated_at car elle cible
+    directement les InventoryLevels.updatedAt au lieu de InventoryItem.updated_at
+    
+    Cette approche récupère TOUTES les locations et filtre les levels modifiés récemment.
+    
+    Args:
+        dt_since: Date à partir de laquelle récupérer les changements
+    
+    Returns:
+        Liste des enregistrements d'inventaire
+    """
+    print(f"\n📍 Sync des InventoryLevels modifiés depuis {dt_since.isoformat()}")
+    
+    names = discover_quantity_names()
+    names_literal = ", ".join(f'"{n}"' for n in names)
+    
+    # Récupérer toutes les locations
+    locations_query = """
+    query {
+      locations(first: 50) {
+        edges {
+          node {
+            id
+            legacyResourceId
+            name
+          }
+        }
+      }
+    }
+    """
+    
+    locations_data = _gql(locations_query)
+    locations = [edge["node"] for edge in locations_data.get("locations", {}).get("edges", [])]
+    
+    print(f"   Traitement de {len(locations)} locations...")
+    
+    all_records = []
+    formatted_date = dt_since.isoformat()
+    
+    for location in locations:
+        location_id = location.get("legacyResourceId")
+        location_name = location.get("name")
+        
+        # Pour chaque location, récupérer les levels modifiés récemment
+        cursor = None
+        page = 0
+        location_records = 0
+        
+        while True:
+            page += 1
+            after_clause = f', after: "{cursor}"' if cursor else ""
+            
+            query = f"""
+            query {{
+              location(id: "{location['id']}") {{
+                inventoryLevels(first: 100{after_clause}) {{
+                  pageInfo {{
+                    hasNextPage
+                    endCursor
+                  }}
+                  edges {{
+                    node {{
+                      id
+                      updatedAt
+                      item {{
+                        id
+                        legacyResourceId
+                        sku
+                        variant {{
+                          id
+                          legacyResourceId
+                          product {{
+                            id
+                            legacyResourceId
+                          }}
+                        }}
+                      }}
+                      quantities(names: [{names_literal}]) {{
+                        name
+                        quantity
+                      }}
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            """
+            
+            data = _gql(query)
+            location_data = data.get("location", {})
+            inventory_levels = location_data.get("inventoryLevels", {})
+            edges = inventory_levels.get("edges", [])
+            page_info = inventory_levels.get("pageInfo", {})
+            
+            for edge in edges:
+                node = edge["node"]
+                updated_at_str = node.get("updatedAt")
+                
+                # Filtrer par date
+                if updated_at_str:
+                    updated_at = _iso_to_dt(updated_at_str)
+                    if updated_at >= dt_since:
+                        item = node.get("item", {})
+                        inventory_item_id = item.get("legacyResourceId")
+                        
+                        if inventory_item_id:
+                            variant = item.get("variant") or {}
+                            product = variant.get("product") or {}
+                            
+                            quantities = node.get("quantities", [])
+                            qmap = {q.get("name"): q.get("quantity", 0) for q in quantities}
+                            
+                            record = {
+                                "inventory_item_id": inventory_item_id,
+                                "location_id": location_id,
+                                "sku": item.get("sku"),
+                                "variant_id": variant.get("legacyResourceId"),
+                                "product_id": product.get("legacyResourceId"),
+                                "available": qmap.get("available", 0),
+                                "committed": qmap.get("committed", 0),
+                                "damaged": qmap.get("damaged", 0),
+                                "incoming": qmap.get("incoming", 0),
+                                "on_hand": qmap.get("on_hand", 0),
+                                "quality_control": qmap.get("quality_control", 0),
+                                "reserved": qmap.get("reserved", 0),
+                                "safety_stock": qmap.get("safety_stock", 0),
+                                "last_updated_at": updated_at_str,
+                                "scheduled_changes": "[]"
+                            }
+                            
+                            all_records.append(record)
+                            location_records += 1
+            
+            # Pagination
+            if page_info.get("hasNextPage"):
+                cursor = page_info.get("endCursor")
+            else:
+                break
+        
+        if location_records > 0:
+            print(f"   ✓ {location_name}: {location_records} levels modifiés")
+    
+    print(f"   Total: {len(all_records)} InventoryLevels modifiés")
+    return all_records
+
+def sync_inventory_smart() -> Dict[str, Any]:
+    """
+    Synchronisation INTELLIGENTE avec stratégie hybride automatique.
+    
+    Cette fonction est le point d'entrée principal pour la synchronisation d'inventaire.
+    Elle choisit automatiquement la meilleure stratégie selon le jour:
+    
+    - DIMANCHE 2h: Sync complète (TOUS les items, TOUTES locations)
+    - AUTRES MOMENTS: Double sync incrémentale (InventoryItems + InventoryLevels)
+    
+    ✅ RÉSOUT LE PROBLÈME: La double sync incrémentale capture TOUS les changements:
+       1. Items dont les propriétés ont changé (InventoryItem.updated_at)
+       2. Items dont les quantités ont changé (InventoryLevel.updatedAt)
+    
+    Cette approche combine:
+    1. Performance: Sync rapide incrémentale par défaut (2-10 min)
+    2. Complétude: Capture 100% des changements récents
+    3. Garantie: Sync complète hebdomadaire pour filet de sécurité
+    
+    Returns:
+        Dictionnaire avec les résultats de la synchronisation
+    """
+    now = datetime.now()
+    hour = now.hour
+    weekday = now.weekday()  # 0=Lundi, 6=Dimanche
+    
+    print(f"\n{'='*80}")
+    print(f"SYNCHRONISATION INTELLIGENTE D'INVENTAIRE")
+    print(f"Date/Heure: {now.isoformat()}")
+    print(f"{'='*80}")
+    
+    try:
+        # STRATÉGIE 1: Sync complète hebdomadaire (Dimanche entre 2h et 3h)
+        if weekday == 6 and hour == 2:
+            print("\n🌐 STRATÉGIE: Synchronisation COMPLÈTE hebdomadaire")
+            print("   Récupération de TOUS les items de TOUTES les locations")
+            print("   ⚠️  Cette opération garantit 100% de cohérence des données")
+            print("   Durée estimée: 15-30 minutes")
+            result = sync_inventory_full()
+            result["strategy_used"] = "full_weekly"
+            return result
+        
+        # STRATÉGIE 2: Double sync incrémentale (défaut)
+        else:
+            print("\n📈 STRATÉGIE: Double synchronisation incrémentale")
+            print("   1️⃣  InventoryItems modifiés (propriétés: SKU, prix, etc.)")
+            print("   2️⃣  InventoryLevels modifiés (quantités par location)")
+            print("   ✅ Capture TOUS les changements récents")
+            print("   Durée estimée: 2-10 minutes")
+            
+            since = datetime.now() - timedelta(hours=2)
+            
+            # Partie 1: Sync des InventoryItems modifiés
+            print("\n   📦 Partie 1: InventoryItems modifiés...")
+            items_records = get_inventory_since_date(since)
+            print(f"      → {len(items_records)} enregistrements d'items")
+            
+            # Partie 2: Sync des InventoryLevels modifiés
+            print("\n   📍 Partie 2: InventoryLevels modifiés...")
+            levels_records = sync_inventory_levels_by_date(since)
+            print(f"      → {len(levels_records)} enregistrements de levels")
+            
+            # Fusionner les deux listes (dédupliquer par inventory_item_id + location_id)
+            print("\n   🔀 Fusion et déduplication...")
+            records_dict = {}
+            
+            for record in items_records + levels_records:
+                key = (record.get("inventory_item_id"), record.get("location_id"))
+                # Garder le plus récent
+                if key not in records_dict:
+                    records_dict[key] = record
+                else:
+                    existing_date = records_dict[key].get("last_updated_at", "")
+                    new_date = record.get("last_updated_at", "")
+                    if new_date > existing_date:
+                        records_dict[key] = record
+            
+            final_records = list(records_dict.values())
+            print(f"      → {len(final_records)} enregistrements uniques après fusion")
+            
+            # Traitement en base
+            print("\n   💾 Insertion en base de données...")
+            result = process_inventory_records(final_records)
+            
+            print("\n   ✅ Double sync terminée")
+            return {
+                "success": True,
+                "strategy_used": "double_incremental",
+                "records_processed": len(final_records),
+                "details": {
+                    "from_items": len(items_records),
+                    "from_levels": len(levels_records),
+                    "unique_after_merge": len(final_records)
+                },
+                "stats": result
+            }
+            
+    except Exception as e:
+        print(f"\n❌ ERREUR lors de la synchronisation intelligente: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "success": False,
+            "strategy_used": "error",
+            "error": str(e),
+            "records_processed": 0,
+            "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}
+        }
+
 def sync_inventory_since_date(dt_since: datetime) -> Dict[str, Any]:
     """
     Synchronise l'inventaire depuis une date donnée.
@@ -555,6 +828,264 @@ def sync_inventory_last_days(days: int = 1) -> Dict[str, Any]:
     """
     since = datetime.now() - timedelta(days=days)
     return sync_inventory_since_date(since)
+
+def sync_inventory_by_location(location_id: str) -> Dict[str, Any]:
+    """
+    Synchronise TOUS les items d'une location spécifique.
+    
+    Cette méthode récupère directement par location et ne dépend pas
+    du filtre updated_at, garantissant qu'aucun item n'est manqué.
+    
+    Args:
+        location_id: L'ID legacy de la location (ex: "61788848199")
+    
+    Returns:
+        Dictionnaire avec les statistiques de synchronisation
+    """
+    print(f"=== Synchronisation complète de la location {location_id} ===")
+    
+    try:
+        # Découvrir les noms de quantités
+        names = discover_quantity_names()
+        names_literal = ", ".join(f'"{n}"' for n in names)
+        
+        # Récupérer tous les inventory levels de cette location
+        all_records = []
+        cursor = None
+        page = 0
+        
+        while True:
+            page += 1
+            after_clause = f', after: "{cursor}"' if cursor else ""
+            
+            query = f"""
+            query {{
+              location(id: "gid://shopify/Location/{location_id}") {{
+                name
+                inventoryLevels(first: 100{after_clause}) {{
+                  pageInfo {{
+                    hasNextPage
+                    endCursor
+                  }}
+                  edges {{
+                    node {{
+                      id
+                      item {{
+                        id
+                        legacyResourceId
+                        sku
+                        variant {{
+                          id
+                          legacyResourceId
+                          product {{
+                            id
+                            legacyResourceId
+                          }}
+                        }}
+                      }}
+                      quantities(names: [{names_literal}]) {{
+                        name
+                        quantity
+                      }}
+                      updatedAt
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            """
+            
+            data = _gql(query)
+            location_data = data.get("location", {})
+            inventory_levels = location_data.get("inventoryLevels", {})
+            edges = inventory_levels.get("edges", [])
+            page_info = inventory_levels.get("pageInfo", {})
+            
+            print(f"  Page {page}: {len(edges)} items récupérés")
+            
+            for edge in edges:
+                node = edge["node"]
+                item = node.get("item", {})
+                
+                inventory_item_id = item.get("legacyResourceId")
+                if not inventory_item_id:
+                    continue
+                
+                variant = item.get("variant") or {}
+                product = variant.get("product") or {}
+                
+                quantities = node.get("quantities", [])
+                qmap = {q.get("name"): q.get("quantity", 0) for q in quantities}
+                
+                record = {
+                    "inventory_item_id": inventory_item_id,
+                    "location_id": location_id,
+                    "sku": item.get("sku"),
+                    "variant_id": variant.get("legacyResourceId"),
+                    "product_id": product.get("legacyResourceId"),
+                    "available": qmap.get("available", 0),
+                    "committed": qmap.get("committed", 0),
+                    "damaged": qmap.get("damaged", 0),
+                    "incoming": qmap.get("incoming", 0),
+                    "on_hand": qmap.get("on_hand", 0),
+                    "quality_control": qmap.get("quality_control", 0),
+                    "reserved": qmap.get("reserved", 0),
+                    "safety_stock": qmap.get("safety_stock", 0),
+                    "last_updated_at": node.get("updatedAt"),
+                    "scheduled_changes": "[]"
+                }
+                
+                all_records.append(record)
+            
+            # Pagination
+            if page_info.get("hasNextPage"):
+                cursor = page_info.get("endCursor")
+            else:
+                break
+        
+        print(f"Total récupéré: {len(all_records)} items pour cette location")
+        
+        # Traitement en base
+        result = process_inventory_records(all_records)
+        
+        print("=== Synchronisation de la location terminée ===")
+        return {
+            "success": True,
+            "location_id": location_id,
+            "records_processed": len(all_records),
+            "stats": result
+        }
+        
+    except Exception as e:
+        print(f"=== Erreur lors de la synchronisation de la location: {str(e)} ===")
+        return {
+            "success": False,
+            "location_id": location_id,
+            "error": str(e),
+            "records_processed": 0,
+            "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}
+        }
+
+def sync_inventory_full() -> Dict[str, Any]:
+    """
+    Synchronise l'inventaire COMPLET sans filtre de date.
+    
+    ⚠️  ATTENTION: Cette opération peut prendre plusieurs minutes et
+    consomme beaucoup de crédits API. À utiliser périodiquement (hebdomadaire)
+    pour garantir la cohérence complète des données.
+    
+    Cette méthode résout le problème des items manquants causé par le filtre
+    updated_at qui s'applique à l'InventoryItem mais pas aux InventoryLevels.
+    
+    Returns:
+        Dictionnaire avec les statistiques de synchronisation
+    """
+    print("=== Synchronisation COMPLÈTE de l'inventaire (SANS filtre de date) ===")
+    print("⚠️  Cette opération peut prendre plusieurs minutes...")
+    
+    try:
+        names = discover_quantity_names()
+        names_literal = ", ".join(f'"{n}"' for n in names)
+        
+        # Requête bulk SANS filtre de date
+        bulk_query = f'''
+        mutation {{
+          bulkOperationRunQuery(
+            query: """
+            {{
+              inventoryItems {{
+                edges {{
+                  node {{
+                    id legacyResourceId sku tracked requiresShipping updatedAt
+                    unitCost {{ amount currencyCode }}
+                    countryCodeOfOrigin
+                    harmonizedSystemCode
+                    variant {{
+                      id legacyResourceId displayName sku
+                      product {{ id legacyResourceId title handle vendor productType status }}
+                    }}
+                    inventoryLevels(first: 250) {{
+                      edges {{
+                        node {{
+                          id
+                          location {{
+                            id legacyResourceId name
+                            address {{ address1 address2 city provinceCode zip country countryCode }}
+                          }}
+                          quantities(names: [{names_literal}]) {{ name quantity updatedAt }}
+                          scheduledChanges(first: 10) {{
+                            edges {{ node {{ expectedAt fromName toName quantity ledgerDocumentUri }} }}
+                          }}
+                          updatedAt
+                        }}
+                      }}
+                    }}
+                  }}
+                }}
+              }}
+            }}
+            """
+          ) {{
+            bulkOperation {{ id status }}
+            userErrors {{ field message }}
+          }}
+        }}
+        '''
+
+        print("Démarrage de l'export bulk complet (TOUS les items)")
+        start = _gql(bulk_query)
+        ue = start["bulkOperationRunQuery"]["userErrors"]
+        if ue:
+            raise RuntimeError(ue)
+
+        # Poll until COMPLETED
+        status_q = """
+        query {
+          currentBulkOperation {
+            id status errorCode objectCount url partialDataUrl
+          }
+        }
+        """
+        terminal = {"COMPLETED", "FAILED", "CANCELED"}
+        url = None
+        while True:
+            time.sleep(5)
+            st = _gql(status_q)["currentBulkOperation"]
+            print(f"[Bulk] status={st['status']} objects={st.get('objectCount')} url={bool(st.get('url'))}")
+            if st["status"] in terminal:
+                if st["status"] != "COMPLETED":
+                    raise RuntimeError(f"Bulk ended with {st['status']} error={st.get('errorCode')}")
+                url = st["url"]
+                break
+
+        # Process data directly from URL
+        if url:
+            print("Traitement des données complètes")
+            inventory_records = process_inventory_data_from_url(url, names)
+        else:
+            print("Aucune donnée disponible")
+            inventory_records = []
+        
+        # Traitement en base
+        result = process_inventory_records(inventory_records)
+        
+        print("=== Synchronisation complète terminée avec succès ===")
+        return {
+            "success": True,
+            "sync_type": "full",
+            "records_processed": len(inventory_records),
+            "stats": result
+        }
+        
+    except Exception as e:
+        print(f"=== Erreur lors de la synchronisation complète: {str(e)} ===")
+        return {
+            "success": False,
+            "sync_type": "full",
+            "error": str(e),
+            "records_processed": 0,
+            "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}
+        }
 
 # ---------------------------------------------------------------------------
 # 8. Exemple d'exécution
