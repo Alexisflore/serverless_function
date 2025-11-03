@@ -632,7 +632,9 @@ def sync_inventory_levels_by_date(dt_since: datetime) -> List[Dict[str, Any]]:
                 # Filtrer par date
                 if updated_at_str:
                     updated_at = _iso_to_dt(updated_at_str)
-                    if updated_at >= dt_since:
+                    # Rendre dt_since timezone-aware s'il ne l'est pas
+                    dt_since_aware = dt_since if dt_since.tzinfo else dt_since.replace(tzinfo=updated_at.tzinfo)
+                    if updated_at >= dt_since_aware:
                         item = node.get("item", {})
                         inventory_item_id = item.get("legacyResourceId")
                         
@@ -726,7 +728,9 @@ def sync_inventory_smart() -> Dict[str, Any]:
             print("   ✅ Capture TOUS les changements récents")
             print("   Durée estimée: 2-10 minutes")
             
-            since = datetime.now() - timedelta(hours=2)
+            # Utiliser UTC pour la comparaison
+            from datetime import timezone
+            since = datetime.now(timezone.utc) - timedelta(hours=2)
             
             # Partie 1: Sync des InventoryItems modifiés
             print("\n   📦 Partie 1: InventoryItems modifiés...")
