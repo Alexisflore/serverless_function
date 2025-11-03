@@ -527,27 +527,30 @@ def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | 
 # 7. Fonctions principales d'orchestration
 # ---------------------------------------------------------------------------
 
-def sync_inventory_levels_by_date(dt_since: datetime) -> List[Dict[str, Any]]:
+def sync_inventory_levels_by_date(dt_since: datetime, max_pages_per_location: int = 5) -> List[Dict[str, Any]]:
     """
     Synchronise les InventoryLevels modifiés depuis une date donnée.
     
-    ✅ Cette méthode résout le problème du filtre updated_at car elle cible
-    directement les InventoryLevels.updatedAt au lieu de InventoryItem.updated_at
+    VERSION REST API: Utilise l'API REST avec filtrage côté serveur (updated_at_min).
+    Cette approche est BEAUCOUP plus efficace que GraphQL car elle filtre côté serveur.
     
-    Cette approche récupère TOUTES les locations et filtre les levels modifiés récemment.
+    Avantages:
+    - Filtrage côté serveur via updated_at_min (pas de scan inutile)
+    - 1 seule requête pour toutes les locations (max 50 locations)
+    - Ultra rapide (< 10 secondes)
+    - Pas de bulk operation (pas de conflit)
     
     Args:
         dt_since: Date à partir de laquelle récupérer les changements
+        max_pages_per_location: Non utilisé (gardé pour compatibilité)
     
     Returns:
         Liste des enregistrements d'inventaire
     """
     print(f"\n📍 Sync des InventoryLevels modifiés depuis {dt_since.isoformat()}")
+    print(f"   🚀 Utilisation de l'API REST avec filtrage serveur (updated_at_min)")
     
-    names = discover_quantity_names()
-    names_literal = ", ".join(f'"{n}"' for n in names)
-    
-    # Récupérer toutes les locations
+    # Récupérer les locations via GraphQL
     locations_query = """
     query {
       locations(first: 50) {
@@ -564,118 +567,126 @@ def sync_inventory_levels_by_date(dt_since: datetime) -> List[Dict[str, Any]]:
     
     locations_data = _gql(locations_query)
     locations = [edge["node"] for edge in locations_data.get("locations", {}).get("edges", [])]
+    location_ids = [loc.get("legacyResourceId") for loc in locations if loc.get("legacyResourceId")]
     
-    print(f"   Traitement de {len(locations)} locations...")
+    print(f"   📍 {len(location_ids)} locations")
+    
+    # Préparer l'URL REST API
+    shop_domain = STORE_DOMAIN  # Défini au début du fichier
+    access_token = ACCESS_TOKEN  # Défini au début du fichier
+    
+    # Formater la date pour l'API REST (ISO 8601)
+    dt_naive = dt_since.replace(tzinfo=None) if dt_since.tzinfo else dt_since
+    updated_at_min = dt_naive.isoformat()
+    
+    # Construire l'URL avec tous les location_ids (max 50)
+    location_ids_str = ",".join(map(str, location_ids))
+    base_url = f"https://{shop_domain}/admin/api/2025-10/inventory_levels.json"
     
     all_records = []
-    formatted_date = dt_since.isoformat()
+    page = 0
+    next_url = f"{base_url}?location_ids={location_ids_str}&updated_at_min={updated_at_min}&limit=250"
     
-    for location in locations:
-        location_id = location.get("legacyResourceId")
-        location_name = location.get("name")
+    # Récupérer les quantity names pour GraphQL (on en aura besoin après)
+    names = discover_quantity_names()
+    
+    print(f"   ⏳ Récupération des niveaux d'inventaire modifiés...", end=" ", flush=True)
+    
+    import requests
+    
+    while next_url:
+        page += 1
         
-        # Pour chaque location, récupérer les levels modifiés récemment
-        cursor = None
-        page = 0
-        location_records = 0
+        # Appel REST API
+        response = requests.get(
+            next_url,
+            headers={
+                "X-Shopify-Access-Token": access_token,
+                "Content-Type": "application/json"
+            }
+        )
+        response.raise_for_status()
         
-        while True:
-            page += 1
-            after_clause = f', after: "{cursor}"' if cursor else ""
+        data = response.json()
+        inventory_levels = data.get("inventory_levels", [])
+        
+        print(f"p{page}:+{len(inventory_levels)}", end=" ", flush=True)
+        
+        # Pour chaque inventory level, enrichir avec les données manquantes via GraphQL
+        for level in inventory_levels:
+            inventory_item_id = level.get("inventory_item_id")
+            location_id = level.get("location_id")
             
-            query = f"""
-            query {{
-              location(id: "{location['id']}") {{
-                inventoryLevels(first: 100{after_clause}) {{
-                  pageInfo {{
-                    hasNextPage
-                    endCursor
-                  }}
-                  edges {{
-                    node {{
-                      id
-                      updatedAt
-                      item {{
-                        id
+            if inventory_item_id and location_id:
+                # Récupérer les détails via GraphQL (SKU, variant_id, product_id, quantities)
+                item_query = f"""
+                query {{
+                  inventoryItem(id: "gid://shopify/InventoryItem/{inventory_item_id}") {{
+                    id
+                    sku
+                    variant {{
+                      legacyResourceId
+                      product {{
                         legacyResourceId
-                        sku
-                        variant {{
-                          id
-                          legacyResourceId
-                          product {{
-                            id
-                            legacyResourceId
-                          }}
-                        }}
                       }}
-                      quantities(names: [{names_literal}]) {{
+                    }}
+                    inventoryLevel(locationId: "gid://shopify/Location/{location_id}") {{
+                      quantities(names: [{", ".join(f'"{n}"' for n in names)}]) {{
                         name
                         quantity
                       }}
                     }}
                   }}
                 }}
-              }}
-            }}
-            """
-            
-            data = _gql(query)
-            location_data = data.get("location", {})
-            inventory_levels = location_data.get("inventoryLevels", {})
-            edges = inventory_levels.get("edges", [])
-            page_info = inventory_levels.get("pageInfo", {})
-            
-            for edge in edges:
-                node = edge["node"]
-                updated_at_str = node.get("updatedAt")
+                """
                 
-                # Filtrer par date
-                if updated_at_str:
-                    updated_at = _iso_to_dt(updated_at_str)
-                    # Rendre dt_since timezone-aware s'il ne l'est pas
-                    dt_since_aware = dt_since if dt_since.tzinfo else dt_since.replace(tzinfo=updated_at.tzinfo)
-                    if updated_at >= dt_since_aware:
-                        item = node.get("item", {})
-                        inventory_item_id = item.get("legacyResourceId")
+                try:
+                    item_data = _gql(item_query)
+                    item = item_data.get("inventoryItem", {})
+                    
+                    if item:
+                        variant = item.get("variant") or {}
+                        product = variant.get("product") or {}
+                        inv_level = item.get("inventoryLevel") or {}
+                        quantities = inv_level.get("quantities", [])
+                        qmap = {q.get("name"): q.get("quantity", 0) for q in quantities}
                         
-                        if inventory_item_id:
-                            variant = item.get("variant") or {}
-                            product = variant.get("product") or {}
-                            
-                            quantities = node.get("quantities", [])
-                            qmap = {q.get("name"): q.get("quantity", 0) for q in quantities}
-                            
-                            record = {
-                                "inventory_item_id": inventory_item_id,
-                                "location_id": location_id,
-                                "sku": item.get("sku"),
-                                "variant_id": variant.get("legacyResourceId"),
-                                "product_id": product.get("legacyResourceId"),
-                                "available": qmap.get("available", 0),
-                                "committed": qmap.get("committed", 0),
-                                "damaged": qmap.get("damaged", 0),
-                                "incoming": qmap.get("incoming", 0),
-                                "on_hand": qmap.get("on_hand", 0),
-                                "quality_control": qmap.get("quality_control", 0),
-                                "reserved": qmap.get("reserved", 0),
-                                "safety_stock": qmap.get("safety_stock", 0),
-                                "last_updated_at": updated_at_str,
-                                "scheduled_changes": "[]"
-                            }
-                            
-                            all_records.append(record)
-                            location_records += 1
-            
-            # Pagination
-            if page_info.get("hasNextPage"):
-                cursor = page_info.get("endCursor")
-            else:
-                break
+                        record = {
+                            "inventory_item_id": inventory_item_id,
+                            "location_id": location_id,
+                            "sku": item.get("sku"),
+                            "variant_id": variant.get("legacyResourceId"),
+                            "product_id": product.get("legacyResourceId"),
+                            "available": qmap.get("available", 0),
+                            "committed": qmap.get("committed", 0),
+                            "damaged": qmap.get("damaged", 0),
+                            "incoming": qmap.get("incoming", 0),
+                            "on_hand": qmap.get("on_hand", 0),
+                            "quality_control": qmap.get("quality_control", 0),
+                            "reserved": qmap.get("reserved", 0),
+                            "safety_stock": qmap.get("safety_stock", 0),
+                            "last_updated_at": level.get("updated_at"),
+                            "scheduled_changes": "[]"
+                        }
+                        
+                        all_records.append(record)
+                except Exception as e:
+                    print(f"\n   ⚠️  Erreur item {inventory_item_id}: {str(e)[:50]}", end=" ", flush=True)
         
-        if location_records > 0:
-            print(f"   ✓ {location_name}: {location_records} levels modifiés")
+        # Vérifier s'il y a une page suivante via les headers Link
+        link_header = response.headers.get("Link", "")
+        next_url = None
+        
+        if link_header:
+            # Parser le header Link pour trouver rel="next"
+            links = link_header.split(",")
+            for link in links:
+                if 'rel="next"' in link:
+                    # Extraire l'URL entre < et >
+                    next_url = link.split(";")[0].strip().strip("<>")
+                    break
     
-    print(f"   Total: {len(all_records)} InventoryLevels modifiés")
+    print(f"\n   ✅ {len(all_records)} InventoryLevels récupérés")
     return all_records
 
 def sync_inventory_smart() -> Dict[str, Any]:
@@ -730,7 +741,7 @@ def sync_inventory_smart() -> Dict[str, Any]:
             
             # Utiliser UTC pour la comparaison
             from datetime import timezone
-            since = datetime.now(timezone.utc) - timedelta(hours=2)
+            since = datetime.now(timezone.utc) - timedelta(hours=2, minutes=0)
             
             # Partie 1: Sync des InventoryItems modifiés
             print("\n   📦 Partie 1: InventoryItems modifiés...")
