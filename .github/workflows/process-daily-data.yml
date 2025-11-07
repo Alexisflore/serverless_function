@@ -1,0 +1,50 @@
+name: Process Daily Data - Hourly Sync
+
+on:
+  schedule:
+    # Exécute toutes les heures à la minute 0
+    - cron: '0 * * * *'
+  # Permet également le déclenchement manuel depuis l'interface GitHub
+  workflow_dispatch:
+
+jobs:
+  trigger-daily-data-processing:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Vercel Function
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+        run: |
+          echo "🚀 Déclenchement du traitement des données..."
+          
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            "${VERCEL_URL}/api/process_daily_data")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "📊 Code de réponse HTTP: $http_code"
+          echo "📋 Réponse:"
+          echo "$body" | jq '.' || echo "$body"
+          
+          # Vérifier si le code HTTP est un succès (2xx)
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "✅ Traitement déclenché avec succès"
+            exit 0
+          else
+            echo "❌ Erreur lors du déclenchement"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ Le cron job a échoué. Vérifiez les logs ci-dessus."
+
