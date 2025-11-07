@@ -25,7 +25,7 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Content-Type: application/json" \
-            "${VERCEL_URL}/api/process_daily_data")
+            "${VERCEL_URL}/api/process_daily_data.py")
           
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
