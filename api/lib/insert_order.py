@@ -184,6 +184,57 @@ def is_test_order(tags_str):
         logger.warning(f"Erreur vérification test order: {tags_str} - {str(e)}")
         return False
 
+def delete_test_order_data(order_id, cur):
+    """
+    Supprime toutes les données associées à une commande de test dans la base de données
+    
+    Args:
+        order_id: L'ID de la commande à supprimer
+        cur: Curseur de la base de données
+        
+    Returns:
+        dict: Statistiques sur les suppressions effectuées
+    """
+    delete_stats = {
+        "transactions_deleted": 0,
+        "order_details_deleted": 0,
+        "order_deleted": 0
+    }
+    
+    try:
+        # 1. Supprimer les transactions associées
+        cur.execute("SELECT COUNT(*) FROM transaction WHERE order_id = %s", (str(order_id),))
+        trans_count = cur.fetchone()[0]
+        
+        if trans_count > 0:
+            cur.execute("DELETE FROM transaction WHERE order_id = %s", (str(order_id),))
+            delete_stats["transactions_deleted"] = trans_count
+            logger.info(f"Suppression de {trans_count} transaction(s) pour la commande de test {order_id}")
+        
+        # 2. Supprimer les order_details associés
+        cur.execute("SELECT COUNT(*) FROM orders_details WHERE _id_order = %s", (str(order_id),))
+        details_count = cur.fetchone()[0]
+        
+        if details_count > 0:
+            cur.execute("DELETE FROM orders_details WHERE _id_order = %s", (str(order_id),))
+            delete_stats["order_details_deleted"] = details_count
+            logger.info(f"Suppression de {details_count} order_detail(s) pour la commande de test {order_id}")
+        
+        # 3. Supprimer la commande elle-même
+        cur.execute("SELECT COUNT(*) FROM orders WHERE _id_order = %s", (str(order_id),))
+        order_count = cur.fetchone()[0]
+        
+        if order_count > 0:
+            cur.execute("DELETE FROM orders WHERE _id_order = %s", (str(order_id),))
+            delete_stats["order_deleted"] = order_count
+            logger.info(f"Suppression de la commande de test {order_id} de la table orders")
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la suppression des données de test pour {order_id}: {str(e)}")
+        raise
+    
+    return delete_stats
+
 def extract_tax_lines(tax_lines, index=0):
     """
     Extrait les informations d'une ligne de taxe spécifique
@@ -280,8 +331,21 @@ def insert_order(order_data):
                 tags_str = order.get('tags', '')
                 if is_test_order(tags_str):
                     logger.info(f"Commande de test filtrée (tag TEST_order_Shopify détecté): {order_id}")
+                    
+                    # Supprimer toutes les données existantes pour cette commande de test
+                    delete_stats = delete_test_order_data(order_id, cur)
+                    
+                    if delete_stats["transactions_deleted"] > 0 or delete_stats["order_details_deleted"] > 0 or delete_stats["order_deleted"] > 0:
+                        logger.info(f"Données supprimées pour la commande de test {order_id}: "
+                                  f"{delete_stats['transactions_deleted']} transaction(s), "
+                                  f"{delete_stats['order_details_deleted']} order_detail(s), "
+                                  f"{delete_stats['order_deleted']} commande(s)")
+                    
                     stats["orders_test_filtered"] += 1
                     stats["orders_id_to_skip"].append(str(order_id))
+                    
+                    # Commiter les suppressions et passer à la commande suivante
+                    conn.commit()
                     continue
 
                 tags_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()] if tags_str else []
