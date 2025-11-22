@@ -264,6 +264,7 @@ def get_refund_details(
     payment_method_name: str | None,
     exchange_rate: float = 1.0,
     taxes_included: bool = False,
+    order_cancelled_date: str | None = None,
 ) -> List[Dict[str, Any]]:
     """
     Retourne une liste d'items détaillés liés au remboursement.
@@ -297,6 +298,8 @@ def get_refund_details(
         product_id = li.get("product_id")
         variant_id = li.get("variant_id")
         refund_status = refund_item.get("restock_type")
+        if not order_cancelled_date and refund_status == "cancel":
+            refund_status = "removed"
         refund_quantity = int(refund_item.get("quantity", 1))
         shop_currency = li.get("price_set", {}).get("shop_money", {}).get("currency_code", "USD")
         presentment_currency = li.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
@@ -873,6 +876,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             fulfillments = order.get("fulfillments", [])
             refunds = order.get("refunds", [])
             taxes_included = order.get("taxes_included", False)
+            order_cancelled_date = order.get('cancelled_at')
 
         except Exception as e:
             print(f"Error getting order: {e}")
@@ -1221,6 +1225,8 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             refund_status = t.get("payments_refund_attributes", {}).get("status")
             if refund_status:
                 transaction_status = refund_status
+        if not order_cancelled_date and transaction_status == "cancel":
+            transaction_status = "removed"
 
         # Calcul des montants pour les paiements avec la nouvelle logique
         tx_amount_local = float(t.get("amount", 0))
@@ -1304,6 +1310,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 payment_method_name=payment_method_name,
                 exchange_rate=exchange_rate,
                 taxes_included=taxes_included,
+                order_cancelled_date=order_cancelled_date,
             )
         )
 

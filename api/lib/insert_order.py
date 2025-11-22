@@ -667,6 +667,10 @@ def insert_order(order_data):
                             "amount_net_sales_check": amount_net_sales_check,
                             "return_check": return_check
                         })
+
+                        # si return_check est True, on met le status de l'article à "returned"
+                        if return_check and detail_mapped["fulfillment_status"] == "unfulfilled":
+                            detail_mapped["fulfillment_status"] = "fulfilled"
                         
                         # Préparer l'insertion SQL pour orders_details
                         detail_columns = []
