@@ -1407,6 +1407,25 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     conn = _pg_connect()
     cur = conn.cursor()
 
+    # 1. Collecter tous les order_id uniques et les convertir en entiers
+    order_ids = list(set(int(tx["order_id"]) for tx in txs if tx.get("order_id")))
+    print(f"Suppression des transactions existantes pour {len(order_ids)} order_id(s)...")
+    
+    # 2. Supprimer toutes les transactions avec ces order_id
+    if order_ids:
+        # Utiliser IN avec des placeholders dynamiques
+        placeholders = ','.join(['%s'] * len(order_ids))
+        delete_q = f"""
+            DELETE FROM transaction
+            WHERE order_id IN ({placeholders})
+        """
+        print(f"DEBUG: order_ids à supprimer = {order_ids}")
+        print(f"DEBUG: Requête DELETE = {delete_q}")
+        cur.execute(delete_q, tuple(order_ids))
+        deleted_count = cur.rowcount
+        stats["deleted"] = deleted_count
+        print(f"{deleted_count} transaction(s) supprimée(s)")
+
     insert_q = """
         INSERT INTO transaction (
             date, order_id, client_id, account_type, transaction_description,
