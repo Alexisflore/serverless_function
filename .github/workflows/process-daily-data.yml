@@ -8,43 +8,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger-daily-data-processing:
+  process-daily-data:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Trigger Vercel Function
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+
+      - name: Install Pipenv
         run: |
-          echo "🚀 Déclenchement du traitement des données..."
-          
-          response=$(curl -s -w "\n%{http_code}" \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
-            -H "Content-Type: application/json" \
-            "${VERCEL_URL}/api/process_daily_data.py")
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          
-          echo "📊 Code de réponse HTTP: $http_code"
-          echo "📋 Réponse:"
-          echo "$body" | jq '.' || echo "$body"
-          
-          # Vérifier si le code HTTP est un succès (2xx)
-          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-            echo "✅ Traitement déclenché avec succès"
-            exit 0
-          else
-            echo "❌ Erreur lors du déclenchement"
-            exit 1
-          fi
+          echo "📦 Installation de Pipenv..."
+          pip install --upgrade pip
+          pip install pipenv
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installation des dépendances depuis Pipfile..."
+          pipenv install --deploy --ignore-pipfile
+
+      - name: Process Daily Data
+        env:
+          # Shopify API
+          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          SHOPIFY_API_VERSION: ${{ secrets.SHOPIFY_API_VERSION }}
+          # Supabase (pour database.py qui utilise supabase client)
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TOKEN }}
+          # Database - variables séparées (fallback de DATABASE_URL)
+          SUPABASE_USER: ${{ secrets.SUPABASE_USER }}
+          SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
+          SUPABASE_HOST: ${{ secrets.SUPABASE_HOST }}
+          SUPABASE_PORT: ${{ secrets.SUPABASE_PORT }}
+          SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME }}
+          # Security
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "🚀 Démarrage du traitement des données..."
+          pipenv run python run_daily_sync.py
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "⚠️ Le cron job a échoué. Vérifiez les logs ci-dessus."
-
