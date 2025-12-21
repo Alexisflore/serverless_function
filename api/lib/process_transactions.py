@@ -256,6 +256,7 @@ def apply_currency_conversion(local_amount: float, exchange_rate: float, local_c
 # 2. Extraction fine des remboursements (inchangé + payment_method_name)
 # ---------------------------------------------------------------------------
 
+
 def get_refund_details(
     order_id: str,
     refund_id: str,
@@ -265,6 +266,7 @@ def get_refund_details(
     exchange_rate: float = 1.0,
     taxes_included: bool = False,
     order_cancelled_date: str | None = None,
+    sale_location_ids: Dict[tuple[int | None, int | None], int | None] = None,
 ) -> List[Dict[str, Any]]:
     """
     Retourne une liste d'items détaillés liés au remboursement.
@@ -287,6 +289,10 @@ def get_refund_details(
     refund_date = refund.get("created_at")
     location_id = refund.get("location_id")
     
+    # Si sale_location_ids n'est pas fourni, créer un dictionnaire vide
+    if sale_location_ids is None:
+        sale_location_ids = {}
+    
     # 1. Traiter les refund_line_items (remboursements d'articles spécifiques)
     for refund_item in refund.get("refund_line_items", []):
         account_type = "Returns"
@@ -297,6 +303,13 @@ def get_refund_details(
         amount_currency = float(li.get("price_set", {}).get("presentment_money", {}).get("amount", amount_shop_money))
         product_id = li.get("product_id")
         variant_id = li.get("variant_id")
+        
+        # Trouver le location_id de la vente correspondante
+        sale_location_key = (product_id, variant_id)
+        sale_location_id = sale_location_ids.get(sale_location_key)
+        
+        # Utiliser le location_id de la vente si trouvé, sinon celui du refund
+        final_location_id = sale_location_id if sale_location_id is not None else location_id
         refund_status = refund_item.get("restock_type")
         if not order_cancelled_date and refund_status == "cancel":
             refund_status = "removed"
@@ -333,7 +346,7 @@ def get_refund_details(
                 "shop_amount": -tax_shop_amount,
                 "amount_currency": -tax_presentment_amount,
                 "transaction_currency": tax_presentment_currency,
-                "location_id": location_id,
+                "location_id": final_location_id,
                 "source_name": source_name,
                 "status": refund_status,
                 "product_id": product_id,
@@ -360,7 +373,7 @@ def get_refund_details(
                 "shop_amount": -amount_shop_money if not taxes_included else -amount_shop_money + total_shop_tax_amount,
                 "amount_currency": -amount_currency if not taxes_included else -amount_currency + total_presentment_tax_amount,
                 "transaction_currency": presentment_currency,
-                "location_id": location_id,
+                "location_id": final_location_id,
                 "source_name": source_name,
                 "status": refund_status,
                 "product_id": product_id,
@@ -393,7 +406,7 @@ def get_refund_details(
                 "shop_amount": -duty_shop_amount,
                 "amount_currency": -duty_presentment_amount,
                 "transaction_currency": duty_presentment_currency,
-                "location_id": location_id,
+                "location_id": final_location_id,
                 "source_name": source_name,
                 "status": "success",
                 "product_id": product_id,
@@ -422,7 +435,7 @@ def get_refund_details(
                 "shop_amount": discount_shop_amount,
                 "amount_currency": discount_presentment_amount,
                 "transaction_currency": discount_presentment_currency,
-                "location_id": location_id,
+                "location_id": final_location_id,
                 "source_name": source_name,
                 "status": "success",
                 "product_id": product_id,
@@ -465,7 +478,7 @@ def get_refund_details(
             "shop_amount": final_shop_amount,
             "amount_currency": final_amount_currency,
             "transaction_currency": presentment_currency,
-            "location_id": location_id,
+            "location_id": final_location_id,
             "source_name": source_name,
             "status": "success",
             "product_id": None,
@@ -538,7 +551,7 @@ def extract_duties_transactions(order: Dict[str, Any], order_id: str, client_id:
     #             "shop_amount": shop_amount,
     #             "amount_currency": presentment_amount,
     #             "transaction_currency": presentment_currency,
-    #             "location_id": None,
+    #             "location_id": final_location_id,
     #             "source_name": source_name,
     #             "status": "success",
     #             "product_id": None,
@@ -1299,6 +1312,15 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     # ------------------------------------------------------------------ #
     # 3.c  Remboursements (réutilise get_refund_details)
     # ------------------------------------------------------------------ #
+    # Créer un dictionnaire des location_ids des ventes pour les returns
+    sale_location_ids: Dict[tuple[int | None, int | None], int | None] = {}
+    for tx in transactions:
+        if tx.get("account_type") == "Sales" and tx.get("location_id") is not None:
+            key = (tx.get("product_id"), tx.get("variant_id"))
+            # Garde le premier location_id trouvé pour chaque paire product_id/variant_id
+            if key not in sale_location_ids:
+                sale_location_ids[key] = tx.get("location_id")
+    
     for r in refunds:
         refund_id = r.get("id")
         transactions.extend(
@@ -1311,6 +1333,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 exchange_rate=exchange_rate,
                 taxes_included=taxes_included,
                 order_cancelled_date=order_cancelled_date,
+                sale_location_ids=sale_location_ids,
             )
         )
 
