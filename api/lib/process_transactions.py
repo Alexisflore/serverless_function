@@ -1442,8 +1442,6 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             DELETE FROM transaction
             WHERE order_id IN ({placeholders})
         """
-        print(f"DEBUG: order_ids à supprimer = {order_ids}")
-        print(f"DEBUG: Requête DELETE = {delete_q}")
         cur.execute(delete_q, tuple(order_ids))
         deleted_count = cur.rowcount
         stats["deleted"] = deleted_count
