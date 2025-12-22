@@ -293,6 +293,9 @@ def get_refund_details(
     if sale_location_ids is None:
         sale_location_ids = {}
     
+    # Initialiser final_location_id avec le location_id du refund par défaut
+    final_location_id = location_id
+    
     # 1. Traiter les refund_line_items (remboursements d'articles spécifiques)
     for refund_item in refund.get("refund_line_items", []):
         account_type = "Returns"
