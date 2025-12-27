@@ -90,6 +90,46 @@ def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int
         return None
 
 
+def check_return_check(order_id: str, product_id: int | None, variant_id: int | None) -> bool:
+    """
+    Vérifie si le return_check est 'true' pour un produit/variant d'une commande.
+    
+    Args:
+        order_id: ID de la commande
+        product_id: ID du produit
+        variant_id: ID du variant
+    Returns:
+        True si return_check = true, False sinon
+    """
+    if product_id is None or variant_id is None:
+        return False
+        
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+
+        query = """
+            SELECT return_check 
+            FROM orders_details 
+            WHERE _id_order::bigint = %s 
+            AND _id_product = %s 
+            AND variant_id = %s
+            LIMIT 1
+        """
+        cur.execute(query, [int(order_id), product_id, variant_id])
+
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        # return_check est un boolean, donc on retourne directement sa valeur
+        return result[0] if result and result[0] is not None else False
+        
+    except Exception as e:
+        print(f"Erreur lors de la vérification de return_check: {e}")
+        return False
+
+
 def get_cogs_from_products(product_id: int | None, variant_id: int | None) -> float | None:
     """
     Récupère le COGS unitaire depuis la table products pour un produit/variant donné.
@@ -267,6 +307,7 @@ def get_refund_details(
     taxes_included: bool = False,
     order_cancelled_date: str | None = None,
     sale_location_ids: Dict[tuple[int | None, int | None], int | None] = None,
+    order_cancelled_at: str | None = None,
 ) -> List[Dict[str, Any]]:
     """
     Retourne une liste d'items détaillés liés au remboursement.
@@ -311,11 +352,25 @@ def get_refund_details(
         sale_location_key = (product_id, variant_id)
         sale_location_id = sale_location_ids.get(sale_location_key)
         
-        # Utiliser le location_id de la vente si trouvé, sinon celui du refund
-        final_location_id = sale_location_id if sale_location_id is not None else location_id
+        # Vérifier les conditions pour utiliser sale_location_id
+        # 1. orders.cancel_status is null (order_cancelled_at is None)
+        # 2. orders.source_name = 'pos'
+        # 3. orders_details.return_check = 'true'
+        # 4. transaction.status = 'return' (refund_status in ['return', 'legacy_restock', 'restock'])
         refund_status = refund_item.get("restock_type")
         if not order_cancelled_date and refund_status == "cancel":
             refund_status = "removed"
+        
+        # Vérifier si toutes les conditions sont remplies pour utiliser sale_location_id
+        should_use_sale_location = (
+            order_cancelled_at is None and  # Condition 1: commande non annulée
+            source_name == 'pos' and  # Condition 2: source_name = 'pos'
+            check_return_check(order_id, product_id, variant_id) and  # Condition 3: return_check = 'true'
+            refund_status == 'return'  # Condition 4: statut de retour
+        )
+        
+        # Utiliser le location_id de la vente si les conditions sont remplies ET si trouvé, sinon celui du refund
+        final_location_id = sale_location_id if (should_use_sale_location and sale_location_id is not None) else 31738513
         refund_quantity = int(refund_item.get("quantity", 1))
         shop_currency = li.get("price_set", {}).get("shop_money", {}).get("currency_code", "USD")
         presentment_currency = li.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
@@ -470,7 +525,7 @@ def get_refund_details(
         
         # Calcul du taux de change réel pour les order_adjustments
         calculated_adjustment_exchange_rate = amount_currency / amount_shop_money if amount_shop_money != 0 else 1.0
-        
+
         items.append({
             "date": refund_date,
             "order_id": order_id,
@@ -1337,6 +1392,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
                 taxes_included=taxes_included,
                 order_cancelled_date=order_cancelled_date,
                 sale_location_ids=sale_location_ids,
+                order_cancelled_at=order_cancelled_date,
             )
         )
 
