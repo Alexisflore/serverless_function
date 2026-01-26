@@ -37,6 +37,9 @@ CREATE TABLE inventory_history (
     -- Type de changement (pour traçabilité)
     change_type VARCHAR(50) DEFAULT 'UPDATE',  -- 'INSERT', 'UPDATE', 'DELETE', 'SYNC'
     
+    -- Mouvement de stock disponible (différence calculée automatiquement)
+    available_stock_movement INTEGER DEFAULT 0,
+    
     -- Optionnel : commentaire pour expliquer le changement
     change_comment TEXT,
     
@@ -59,6 +62,9 @@ CREATE INDEX idx_inventory_history_change_type ON inventory_history(change_type)
 -- Index composite pour requêtes temporelles sur un item spécifique
 CREATE INDEX idx_inventory_history_item_time ON inventory_history(inventory_item_id, location_id, recorded_at DESC);
 
+-- Index pour requêtes sur les mouvements de stock
+CREATE INDEX idx_inventory_history_stock_movement ON inventory_history(available_stock_movement) WHERE available_stock_movement != 0;
+
 -- Commentaires sur la table et les colonnes
 COMMENT ON TABLE inventory_history IS 'Historique complet des changements d''inventaire. Chaque modification crée une nouvelle ligne avec un timestamp recorded_at pour suivre l''évolution dans le temps.';
 
@@ -80,6 +86,7 @@ COMMENT ON COLUMN inventory_history.safety_stock IS 'Stock de sécurité';
 
 COMMENT ON COLUMN inventory_history.recorded_at IS 'Timestamp de création de cette ligne d''historique - permet de suivre l''évolution temporelle';
 COMMENT ON COLUMN inventory_history.change_type IS 'Type de modification: INSERT (nouvelle ligne), UPDATE (modification), DELETE (suppression), SYNC (synchronisation Shopify)';
+COMMENT ON COLUMN inventory_history.available_stock_movement IS 'Mouvement de stock disponible : INSERT: +available, UPDATE: NEW.available - OLD.available, DELETE: -available';
 COMMENT ON COLUMN inventory_history.change_comment IS 'Commentaire optionnel pour expliquer le changement';
 
 -- ============================================
@@ -107,6 +114,7 @@ BEGIN
         last_updated_at,
         scheduled_changes,
         change_type,
+        available_stock_movement,
         recorded_at
     ) VALUES (
         NEW.inventory_item_id,
@@ -125,6 +133,7 @@ BEGIN
         NEW.last_updated_at,
         NEW.scheduled_changes,
         'INSERT',
+        NEW.available,  -- Mouvement = +available (nouveau stock)
         NOW()
     );
     RETURN NEW;
@@ -163,6 +172,7 @@ BEGIN
             last_updated_at,
             scheduled_changes,
             change_type,
+            available_stock_movement,
             recorded_at
         ) VALUES (
             NEW.inventory_item_id,
@@ -181,6 +191,7 @@ BEGIN
             NEW.last_updated_at,
             NEW.scheduled_changes,
             'UPDATE',
+            NEW.available - OLD.available,  -- Mouvement = différence
             NOW()
         );
     END IF;
@@ -209,6 +220,7 @@ BEGIN
         last_updated_at,
         scheduled_changes,
         change_type,
+        available_stock_movement,
         recorded_at
     ) VALUES (
         OLD.inventory_item_id,
@@ -227,6 +239,7 @@ BEGIN
         OLD.last_updated_at,
         OLD.scheduled_changes,
         'DELETE',
+        -OLD.available,  -- Mouvement = -available (stock retiré)
         NOW()
     );
     RETURN OLD;
