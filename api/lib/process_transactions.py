@@ -1666,7 +1666,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     cur = None
     
     try:
-        conn = _pg_connect(max_retries=3)
+        conn = _pg_connect()
         cur = conn.cursor()
 
         # 1. Collecter tous les order_id uniques et les convertir en entiers
