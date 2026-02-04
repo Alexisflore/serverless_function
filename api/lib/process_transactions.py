@@ -9,13 +9,80 @@ Inclus :
 import os
 import json
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable, TypeVar
 from decimal import Decimal, ROUND_HALF_UP
+from functools import wraps
 import time
 import requests
 import psycopg2
+from psycopg2 import OperationalError
 from dotenv import load_dotenv
+import logging
 
+# Configuration du logging
+from api.lib.logging_config import get_logger
+logger = get_logger('process_transactions')
+
+
+# ---------------------------------------------------------------------------
+# 0. Décorateur pour retry automatique sur erreurs de connexion
+# ---------------------------------------------------------------------------
+
+T = TypeVar('T')
+
+def db_retry(max_retries: int = 3, backoff_base: int = 2):
+    """
+    Décorateur pour ajouter un système de retry automatique sur les fonctions 
+    qui se connectent à la base de données.
+    
+    Args:
+        max_retries: Nombre maximum de tentatives
+        backoff_base: Base pour le backoff exponentiel (en secondes)
+    
+    Returns:
+        Fonction décorée avec retry automatique
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> T:
+            retry_count = 0
+            func_name = func.__name__
+            
+            while retry_count <= max_retries:
+                try:
+                    if retry_count > 0:
+                        logger.info(f"{func_name}: Tentative {retry_count + 1}/{max_retries + 1}")
+                    
+                    result = func(*args, **kwargs)
+                    
+                    if retry_count > 0:
+                        logger.info(f"{func_name}: Succès après {retry_count + 1} tentative(s)")
+                    
+                    return result
+                    
+                except OperationalError as e:
+                    retry_count += 1
+                    logger.error(f"{func_name}: Erreur de connexion (tentative {retry_count}/{max_retries + 1}): {str(e)}")
+                    
+                    # Afficher le contexte des arguments pour le debug
+                    args_str = ', '.join([str(arg)[:100] for arg in args[:3]])  # Limiter à 3 premiers args
+                    logger.error(f"{func_name}: Contexte - args: {args_str}")
+                    
+                    if retry_count <= max_retries:
+                        wait_time = backoff_base ** (retry_count - 1)
+                        logger.info(f"{func_name}: Nouvelle tentative dans {wait_time} secondes...")
+                        time.sleep(wait_time)
+                    else:
+                        logger.error(f"{func_name}: Échec après {max_retries + 1} tentatives")
+                        raise
+                        
+                except Exception as e:
+                    logger.error(f"{func_name}: Erreur inattendue: {str(e)}")
+                    logger.error(f"{func_name}: Type d'erreur: {type(e).__name__}")
+                    raise
+        
+        return wrapper
+    return decorator
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +98,10 @@ def _shopify_headers() -> Dict[str, str]:
 
 
 def _pg_connect():
+    """
+    Établit une connexion à la base de données.
+    Le retry est géré par le décorateur @db_retry sur les fonctions qui l'utilisent.
+    """
     load_dotenv()
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
@@ -41,11 +112,14 @@ def _pg_connect():
             port=os.getenv("SUPABASE_PORT"),
             db=os.getenv("SUPABASE_DB_NAME"),
         )
-    return psycopg2.connect(db_url)
+    
+    return psycopg2.connect(db_url, connect_timeout=10)
 
+@db_retry(max_retries=3)
 def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int | None, name: str | None) -> int | None:
     """
     Récupère l'ID orders_details correspondant à un produit/variant d'une commande.
+    Le retry est géré automatiquement par le décorateur @db_retry.
     
     Args:
         order_id: ID de la commande
@@ -55,7 +129,11 @@ def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int
     Returns:
         L'ID orders_details correspondant ou None si pas de correspondance
     """
+    conn = None
+    cur = None
+    
     try:
+        logger.debug(f"Récupération orders_details_id pour order_id={order_id}, product_id={product_id}, variant_id={variant_id}, name={name}")
         conn = _pg_connect()
         cur = conn.cursor()
 
@@ -80,19 +158,41 @@ def get_orders_details_id(order_id: str, product_id: int | None, variant_id: int
             cur.execute(query, [int(order_id), product_id, variant_id])
 
         result = cur.fetchone()
-        cur.close()
-        conn.close()
+        orders_detail_id = result[0] if result else None
         
-        return result[0] if result else None
+        if orders_detail_id:
+            logger.debug(f"orders_details_id trouvé: {orders_detail_id}")
+        else:
+            logger.debug(f"Aucun orders_details_id trouvé pour order_id={order_id}")
         
+        return orders_detail_id
+        
+    except OperationalError:
+        # Laisse le décorateur gérer le retry
+        raise
+            
     except Exception as e:
-        print(f"Erreur lors de la récupération de orders_details_id: {e}")
+        logger.error(f"Erreur inattendue lors de la récupération de orders_details_id: {str(e)}")
         return None
+        
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 
+@db_retry(max_retries=3)
 def check_return_check(order_id: str, product_id: int | None, variant_id: int | None) -> bool:
     """
     Vérifie si le return_check est 'true' pour un produit/variant d'une commande.
+    Le retry est géré automatiquement par le décorateur @db_retry.
     
     Args:
         order_id: ID de la commande
@@ -103,8 +203,12 @@ def check_return_check(order_id: str, product_id: int | None, variant_id: int | 
     """
     if product_id is None or variant_id is None:
         return False
+    
+    conn = None
+    cur = None
         
     try:
+        logger.debug(f"Vérification return_check pour order_id={order_id}, product_id={product_id}, variant_id={variant_id}")
         conn = _pg_connect()
         cur = conn.cursor()
 
@@ -119,20 +223,39 @@ def check_return_check(order_id: str, product_id: int | None, variant_id: int | 
         cur.execute(query, [int(order_id), product_id, variant_id])
 
         result = cur.fetchone()
-        cur.close()
-        conn.close()
         
         # return_check est un boolean, donc on retourne directement sa valeur
-        return result[0] if result and result[0] is not None else False
+        return_check_value = result[0] if result and result[0] is not None else False
+        logger.debug(f"return_check = {return_check_value}")
         
+        return return_check_value
+        
+    except OperationalError:
+        # Laisse le décorateur gérer le retry
+        raise
+            
     except Exception as e:
-        print(f"Erreur lors de la vérification de return_check: {e}")
+        logger.error(f"Erreur inattendue lors de la vérification de return_check: {str(e)}")
         return False
+        
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 
+@db_retry(max_retries=3)
 def get_cogs_from_products(product_id: int | None, variant_id: int | None) -> float | None:
     """
     Récupère le COGS unitaire depuis la table products pour un produit/variant donné.
+    Le retry est géré automatiquement par le décorateur @db_retry.
     
     Args:
         product_id: ID du produit Shopify
@@ -142,8 +265,12 @@ def get_cogs_from_products(product_id: int | None, variant_id: int | None) -> fl
     """
     if not product_id or not variant_id:
         return None
+    
+    conn = None
+    cur = None
         
     try:
+        logger.debug(f"Récupération COGS pour product_id={product_id}, variant_id={variant_id}")
         conn = _pg_connect()
         cur = conn.cursor()
         
@@ -156,16 +283,34 @@ def get_cogs_from_products(product_id: int | None, variant_id: int | None) -> fl
         cur.execute(query, [product_id, variant_id])
         
         result = cur.fetchone()
-        cur.close()
-        conn.close()
         
         if result and result[0] is not None:
-            return float(result[0])
+            cogs_value = float(result[0])
+            logger.debug(f"COGS trouvé: {cogs_value}")
+            return cogs_value
+        
+        logger.debug(f"Aucun COGS trouvé pour product_id={product_id}, variant_id={variant_id}")
         return None
         
+    except OperationalError:
+        # Laisse le décorateur gérer le retry
+        raise
+            
     except Exception as e:
-        print(f"Erreur lors de la récupération du COGS: {e}")
+        logger.error(f"Erreur inattendue lors de la récupération du COGS: {str(e)}")
         return None
+        
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 
 def calculate_cogs_values(product_id: int | None, variant_id: int | None, quantity: int, account_type: str) -> tuple[float | None, float | None]:
@@ -322,7 +467,7 @@ def get_refund_details(
 
     resp = requests.get(url_refund, headers=_shopify_headers())
     if resp.status_code != 200:
-        print(f"[Refund] {resp.status_code}: {resp.text}")
+        logger.error(f"[Refund] {resp.status_code}: {resp.text}")
         return []
 
     refund = resp.json().get("refund", {})
@@ -513,7 +658,7 @@ def get_refund_details(
         shop_currency = adjustment.get("amount_set", {}).get("shop_money", {}).get("currency_code")
         amount_currency = Decimal(str(adjustment.get("amount_set", {}).get("presentment_money", {}).get("amount")))
         presentment_currency = adjustment.get("amount_set", {}).get("presentment_money", {}).get("currency_code")
-        print(f"Adjustment - Shop: {amount_shop_money}, Currency: {amount_currency}")
+        logger.debug(f"Adjustment - Shop: {amount_shop_money}, Currency: {amount_currency}")
         
         total_shop_amount += amount_shop_money
         total_amount_currency += amount_currency    
@@ -929,6 +1074,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
     while attempts < 3:
         attempts += 1
         try:
+            logger.info(f"Traitement de la commande: {order_id}")
             order_url = f"https://{store_domain}/admin/api/{api_version}/orders/{order_id}.json"
             order_resp = requests.get(order_url, headers=_shopify_headers())
             order_resp.raise_for_status()
@@ -936,7 +1082,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             # Vérification pour éviter l'erreur 'NoneType' object has no attribute 'get'
             order_data = order_resp.json()
             if order_data is None:
-                print(f"Réponse JSON vide pour l'ordre {order_id}")
+                logger.error(f"Réponse JSON vide pour l'ordre {order_id}")
                 return []
 
             order = order_data.get("order", {})
@@ -948,10 +1094,14 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
             refunds = order.get("refunds", [])
             taxes_included = order.get("taxes_included", False)
             order_cancelled_date = order.get('cancelled_at')
+            
+            logger.info(f"Commande {order_id} chargée avec succès")
+            break
 
         except Exception as e:
-            print(f"Error getting order: {e}")
+            logger.error(f"Erreur lors du chargement de la commande {order_id} (tentative {attempts}/3): {str(e)}")
             if attempts == 3:
+                logger.error(f"Échec du traitement de la commande {order_id} après 3 tentatives")
                 return []
             time.sleep(1)
 
@@ -1430,7 +1580,7 @@ def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def get_transactions_between_dates(start: datetime, end: datetime, orders_id_to_skip: List[str]) -> List[Dict]:
-    print(f"Recherche des transactions entre {start.isoformat()} et {end.isoformat()}")
+    logger.info(f"Recherche des transactions entre {start.isoformat()} et {end.isoformat()}")
     formatted_start = start.isoformat()
     formatted_end = end.isoformat()
 
@@ -1443,26 +1593,52 @@ def get_transactions_between_dates(start: datetime, end: datetime, orders_id_to_
 
     resp = requests.get(url, headers=_shopify_headers())
     if not resp.ok:
-        print(f"[Orders] {resp.status_code}: {resp.text}")
+        logger.error(f"[Orders] {resp.status_code}: {resp.text}")
         return []
 
     txs: List[Dict] = []
     orders = resp.json().get("orders", [])
-    print(f"Nombre de commandes trouvées: {len(orders)}")
-    print(f"Commandes à ignorer: {orders_id_to_skip}")
+    logger.info(f"Nombre de commandes trouvées: {len(orders)}")
+    logger.info(f"Commandes à ignorer: {orders_id_to_skip}")
+    
+    failed_orders = []
     
     for order in orders:
         order_id = str(order["id"])
         if order_id in orders_id_to_skip:
-            print(f"Commande {order_id} à ignorer")
+            logger.info(f"Commande {order_id} à ignorer")
             continue
-        print(f"Traitement de la commande: {order_id}")
-        txs.extend(get_transactions_by_order(order_id))
+        
+        try:
+            logger.info(f"Traitement de la commande: {order_id}")
+            order_transactions = get_transactions_by_order(order_id)
+            txs.extend(order_transactions)
+            logger.info(f"Commande {order_id} traitée avec succès ({len(order_transactions)} transactions)")
+        except Exception as e:
+            logger.error(f"❌ Erreur lors du traitement de la commande {order_id}: {str(e)}")
+            logger.error(f"Type d'erreur: {type(e).__name__}")
+            
+            # Enregistrer les commandes échouées pour le rapport final
+            failed_orders.append({
+                "order_id": order_id,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+            
+            # Continuer avec les autres commandes au lieu d'arrêter tout le traitement
+            continue
+    
+    # Afficher un résumé des échecs s'il y en a
+    if failed_orders:
+        logger.warning(f"⚠️ {len(failed_orders)} commande(s) ont échoué lors du traitement:")
+        for failed in failed_orders:
+            logger.warning(f"  - Commande {failed['order_id']}: {failed['error_type']} - {failed['error']}")
 
+    logger.info(f"Traitement terminé: {len(txs)} transactions extraites pour {len(orders) - len(failed_orders)}/{len(orders)} commandes")
     return txs
 
 def get_transactions_since_date(dt_since: datetime):
-    print(f"Récupération des transactions depuis {dt_since.isoformat()}")
+    logger.info(f"Récupération des transactions depuis {dt_since.isoformat()}")
     return get_transactions_between_dates(dt_since, datetime.now(), [])
 
 
@@ -1474,7 +1650,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     """
     Insère ou met à jour les transactions dans PostgreSQL.
     """
-    print(f"Début du traitement de {len(txs)} transactions...")
+    logger.info(f"Début du traitement de {len(txs)} transactions...")
     stats = {
         "inserted": 0,
         "updated": 0,
@@ -1483,78 +1659,81 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
     }
 
     if not txs:
-        print("Aucune transaction à traiter.")
+        logger.info("Aucune transaction à traiter.")
         return stats
 
-    conn = _pg_connect()
-    cur = conn.cursor()
-
-    # 1. Collecter tous les order_id uniques et les convertir en entiers
-    order_ids = list(set(int(tx["order_id"]) for tx in txs if tx.get("order_id")))
-    print(f"Suppression des transactions existantes pour {len(order_ids)} order_id(s)...")
+    conn = None
+    cur = None
     
-    # 2. Supprimer toutes les transactions avec ces order_id
-    if order_ids:
-        # Utiliser IN avec des placeholders dynamiques
-        placeholders = ','.join(['%s'] * len(order_ids))
-        delete_q = f"""
-            DELETE FROM transaction
-            WHERE order_id IN ({placeholders})
-        """
-        cur.execute(delete_q, tuple(order_ids))
-        deleted_count = cur.rowcount
-        stats["deleted"] = deleted_count
-        print(f"{deleted_count} transaction(s) supprimée(s)")
-
-    insert_q = """
-        INSERT INTO transaction (
-            date, order_id, client_id, account_type, transaction_description,
-            shop_amount, amount_currency, transaction_currency, location_id, source_name, status,
-            product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency,
-            cogs_unit, cogs_total
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-    """
-
-    update_q = """
-        UPDATE transaction SET
-            client_id = %s,
-            account_type = %s,
-            shop_amount = %s,
-            amount_currency = %s,
-            transaction_currency = %s,
-            location_id = %s,
-            status = %s,
-            product_id = %s,
-            variant_id = %s,
-            payment_method_name = %s,
-            orders_details_id = %s,
-            quantity = %s,
-            exchange_rate = %s,
-            shop_currency = %s,
-            cogs_unit = %s,
-            cogs_total = %s,
-            updated_at_timestamp = CURRENT_TIMESTAMP
-        WHERE id = %s
-    """
-
-    # Check principal avec date exacte
-    check_q = """
-        SELECT id, status FROM transaction
-        WHERE date = %s AND order_id = %s AND transaction_description = %s
-          AND source_name = %s
-    """
-    
-    # Check secondaire sans date pour détecter les mises à jour de statut
-    check_q_without_date = """
-        SELECT id, status, date FROM transaction
-        WHERE order_id = %s AND transaction_description = %s
-          AND source_name = %s
-    """
-
     try:
+        conn = _pg_connect(max_retries=3)
+        cur = conn.cursor()
+
+        # 1. Collecter tous les order_id uniques et les convertir en entiers
+        order_ids = list(set(int(tx["order_id"]) for tx in txs if tx.get("order_id")))
+        logger.info(f"Suppression des transactions existantes pour {len(order_ids)} order_id(s)...")
+        
+        # 2. Supprimer toutes les transactions avec ces order_id
+        if order_ids:
+            # Utiliser IN avec des placeholders dynamiques
+            placeholders = ','.join(['%s'] * len(order_ids))
+            delete_q = f"""
+                DELETE FROM transaction
+                WHERE order_id IN ({placeholders})
+            """
+            cur.execute(delete_q, tuple(order_ids))
+            deleted_count = cur.rowcount
+            stats["deleted"] = deleted_count
+            logger.info(f"{deleted_count} transaction(s) supprimée(s)")
+
+        insert_q = """
+            INSERT INTO transaction (
+                date, order_id, client_id, account_type, transaction_description,
+                shop_amount, amount_currency, transaction_currency, location_id, source_name, status,
+                product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency,
+                cogs_unit, cogs_total
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """
+
+        update_q = """
+            UPDATE transaction SET
+                client_id = %s,
+                account_type = %s,
+                shop_amount = %s,
+                amount_currency = %s,
+                transaction_currency = %s,
+                location_id = %s,
+                status = %s,
+                product_id = %s,
+                variant_id = %s,
+                payment_method_name = %s,
+                orders_details_id = %s,
+                quantity = %s,
+                exchange_rate = %s,
+                shop_currency = %s,
+                cogs_unit = %s,
+                cogs_total = %s,
+                updated_at_timestamp = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """
+
+        # Check principal avec date exacte
+        check_q = """
+            SELECT id, status FROM transaction
+            WHERE date = %s AND order_id = %s AND transaction_description = %s
+              AND source_name = %s
+        """
+        
+        # Check secondaire sans date pour détecter les mises à jour de statut
+        check_q_without_date = """
+            SELECT id, status, date FROM transaction
+            WHERE order_id = %s AND transaction_description = %s
+              AND source_name = %s
+        """
+
         for i, tx in enumerate(txs):
             if i % 50 == 0 and i > 0:
-                print(f"Progression: {i}/{len(txs)} transactions traitées")
+                logger.info(f"Progression: {i}/{len(txs)} transactions traitées")
             
             try:
                 dt_obj = _iso_to_dt(tx["date"])
@@ -1657,7 +1836,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                 ),
                             )
                             stats["updated"] += 1
-                            print(f"Mise à jour statut: {existing_status} -> {current_status} pour transaction order_id={tx['order_id']}")
+                            logger.debug(f"Mise à jour statut: {existing_status} -> {current_status} pour transaction order_id={tx['order_id']}")
                         else:
                             # Même statut mais date différente - nouvelle transaction
                             cur.execute(
@@ -1686,7 +1865,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                 ),
                             )
                             stats["inserted"] += 1
-                            print(f"Nouvelle transaction (même statut {current_status}) pour order_id={tx['order_id']}")
+                            logger.debug(f"Nouvelle transaction (même statut {current_status}) pour order_id={tx['order_id']}")
                     else:
                         # Aucune transaction similaire trouvée - nouvelle insertion
                         cur.execute(
@@ -1716,21 +1895,45 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                         )
                         stats["inserted"] += 1
             except Exception as exc:
-                stats["errors"].append(str(exc))
+                error_msg = f"Erreur sur transaction (order_id={tx.get('order_id', 'unknown')}): {str(exc)}"
+                logger.error(error_msg)
+                stats["errors"].append(error_msg)
                 stats["skipped"] += 1
-                print(f"Erreur sur transaction: {str(exc)}")
 
-        print("Validation des changements (commit)...")
+        logger.info("Validation des changements (commit)...")
         conn.commit()
+        logger.info("Commit réussi")
+        
     except Exception as exc:
-        print(f"Erreur critique, rollback: {str(exc)}")
-        conn.rollback()
-        stats["errors"].append(str(exc))
+        error_msg = f"Erreur critique lors du traitement des transactions: {str(exc)}"
+        logger.error(error_msg)
+        logger.error(f"Type d'erreur: {type(exc).__name__}")
+        
+        if conn:
+            try:
+                logger.info("Rollback des changements...")
+                conn.rollback()
+            except Exception as rb_exc:
+                logger.error(f"Erreur lors du rollback: {str(rb_exc)}")
+        
+        stats["errors"].append(error_msg)
+        
     finally:
-        cur.close()
-        conn.close()
+        if cur:
+            try:
+                cur.close()
+            except:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
-    print(f"Fin du traitement: {stats['inserted']} insérées, {stats['updated']} mises à jour, {stats['skipped']} ignorées")
+    logger.info(f"Fin du traitement: {stats['inserted']} insérées, {stats['updated']} mises à jour, {stats['skipped']} ignorées")
+    if stats["errors"]:
+        logger.warning(f"{len(stats['errors'])} erreur(s) rencontrée(s)")
+    
     return stats
 
 
@@ -1739,12 +1942,12 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("=== Démarrage de la synchronisation des transactions ===")
+    logger.info("=== Démarrage de la synchronisation des transactions ===")
     # Exemple : re-synchronise les 2 derniers jours
-    print("Récupération des transactions des 2 derniers jours...")
+    logger.info("Récupération des transactions des 2 derniers jours...")
     since = datetime.now(datetime.UTC) - timedelta(days=2)
     all_tx = get_transactions_since_date(since)
-    print(f"Traitement de {len(all_tx)} transactions...")
+    logger.info(f"Traitement de {len(all_tx)} transactions...")
     result = process_transactions(all_tx)
-    print("=== Synchronisation terminée ===")
-    print(json.dumps(result, indent=2, default=str))
+    logger.info("=== Synchronisation terminée ===")
+    logger.info(json.dumps(result, indent=2, default=str))
