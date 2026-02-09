@@ -457,86 +457,102 @@ def process_inventory_queue() -> Dict[str, Any]:
 
         print(f"Traitement de {len(pending_rows)} lignes pending dans la queue...")
 
+        MAX_ATTEMPTS = 3
+
         for row in pending_rows:
             queue_id, inventory_item_id, location_id, quantities, shopify_updated_at = row
 
-            try:
-                # 2. Passer le status à 'processing'
-                cur.execute("""
-                    UPDATE inventory_snapshot_queue
-                    SET status = 'processing'
-                    WHERE id = %s
-                """, (queue_id,))
-                conn.commit()
-
-                # Extraire les quantités du jsonb
-                qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
-                available = qty.get("available", 0)
-                committed = qty.get("committed", 0)
-                on_hand = qty.get("on_hand", 0)
-                incoming = qty.get("incoming", 0)
-                reserved = qty.get("reserved", 0)
-
-                # 3. UPSERT : INSERT si nouveau, UPDATE si existant
-                #    RETURNING (xmax = 0) — true when the row was freshly
-                #    inserted, false when an existing row was updated.
-                cur.execute("""
-                    INSERT INTO inventory (
-                        inventory_item_id, location_id,
-                        available, committed, on_hand, incoming, reserved,
-                        last_updated_at, synced_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                    ON CONFLICT (inventory_item_id, location_id)
-                    DO UPDATE SET
-                        available = EXCLUDED.available,
-                        committed = EXCLUDED.committed,
-                        on_hand = EXCLUDED.on_hand,
-                        incoming = EXCLUDED.incoming,
-                        reserved = EXCLUDED.reserved,
-                        last_updated_at = EXCLUDED.last_updated_at,
-                        synced_at = NOW()
-                    RETURNING (xmax = 0) AS inserted
-                """, (
-                    inventory_item_id, location_id,
-                    available, committed, on_hand, incoming, reserved,
-                    shopify_updated_at,
-                ))
-                was_inserted = cur.fetchone()[0]
-
-                # 4. Marquer comme completed
-                cur.execute("""
-                    UPDATE inventory_snapshot_queue
-                    SET status = 'completed',
-                        processed_at = NOW()
-                    WHERE id = %s
-                """, (queue_id,))
-                conn.commit()
-
-                if was_inserted:
-                    stats["inserted"] += 1
-                else:
-                    stats["updated"] += 1
-
-            except Exception as exc:
-                if conn is not None:
-                    conn.rollback()
-                error_msg = str(exc)[:500]
+            # Retry jusqu'à MAX_ATTEMPTS fois avant de marquer comme failed
+            for attempt in range(1, MAX_ATTEMPTS + 1):
                 try:
+                    # 2. Passer le status à 'processing'
                     cur.execute("""
                         UPDATE inventory_snapshot_queue
-                        SET status = 'failed',
-                            attempts = attempts + 1,
-                            last_error = %s
+                        SET status = 'processing',
+                            attempts = %s
                         WHERE id = %s
-                    """, (error_msg, queue_id))
+                    """, (attempt, queue_id))
                     conn.commit()
-                except Exception:
+
+                    # Extraire les quantités du jsonb
+                    qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
+                    available = qty.get("available", 0)
+                    committed = qty.get("committed", 0)
+                    on_hand = qty.get("on_hand", 0)
+                    incoming = qty.get("incoming", 0)
+                    reserved = qty.get("reserved", 0)
+
+                    # 3. UPSERT : INSERT si nouveau, UPDATE si existant
+                    #    RETURNING (xmax = 0) — true when the row was freshly
+                    #    inserted, false when an existing row was updated.
+                    cur.execute("""
+                        INSERT INTO inventory (
+                            inventory_item_id, location_id,
+                            available, committed, on_hand, incoming, reserved,
+                            last_updated_at, synced_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (inventory_item_id, location_id)
+                        DO UPDATE SET
+                            available = EXCLUDED.available,
+                            committed = EXCLUDED.committed,
+                            on_hand = EXCLUDED.on_hand,
+                            incoming = EXCLUDED.incoming,
+                            reserved = EXCLUDED.reserved,
+                            last_updated_at = EXCLUDED.last_updated_at,
+                            synced_at = NOW()
+                        RETURNING (xmax = 0) AS inserted
+                    """, (
+                        inventory_item_id, location_id,
+                        available, committed, on_hand, incoming, reserved,
+                        shopify_updated_at,
+                    ))
+                    was_inserted = cur.fetchone()[0]
+
+                    # 4. Marquer comme completed
+                    cur.execute("""
+                        UPDATE inventory_snapshot_queue
+                        SET status = 'completed',
+                            processed_at = NOW()
+                        WHERE id = %s
+                    """, (queue_id,))
+                    conn.commit()
+
+                    if was_inserted:
+                        stats["inserted"] += 1
+                    else:
+                        stats["updated"] += 1
+
+                    # Succès → sortir de la boucle de retry
+                    break
+
+                except Exception as exc:
                     if conn is not None:
                         conn.rollback()
+                    error_msg = str(exc)[:500]
 
-                stats["failed"] += 1
-                stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
-                print(f"Erreur sur queue id={queue_id}: {error_msg}")
+                    if attempt < MAX_ATTEMPTS:
+                        # Tentative échouée mais il reste des essais
+                        print(f"Queue id={queue_id}: tentative {attempt}/{MAX_ATTEMPTS} échouée — {error_msg}")
+                        time.sleep(1)
+                        continue
+
+                    # Dernière tentative échouée → marquer comme failed
+                    try:
+                        cur.execute("""
+                            UPDATE inventory_snapshot_queue
+                            SET status = 'failed',
+                                attempts = %s,
+                                last_error = %s
+                            WHERE id = %s
+                        """, (attempt, error_msg, queue_id))
+                        conn.commit()
+                    except Exception:
+                        if conn is not None:
+                            conn.rollback()
+
+                    stats["failed"] += 1
+                    stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
+                    print(f"Queue id={queue_id}: échec définitif après {MAX_ATTEMPTS} tentatives — {error_msg}")
 
     except Exception as exc:
         print(f"Erreur critique lors du traitement de la queue: {str(exc)}")
