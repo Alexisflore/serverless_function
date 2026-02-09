@@ -13,7 +13,7 @@ from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
 from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders
-from api.lib.process_inventory_sync import sync_inventory_smart
+from api.lib.process_inventory_sync import sync_inventory_full, process_inventory_queue
 from api.lib.process_customer import sync_customers_since_date
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
@@ -65,16 +65,29 @@ def process_daily_data(start_date, end_date):
         recuperer_et_enregistrer_versements_jour(day_date)
         response_data["success"] = True
 
-        # 5. Synchronize inventory data with smart hybrid strategy
-        print("📦 Synchronisation intelligente de l'inventaire...")
+        # 5a. Traiter la queue de webhooks inventory (pending → inventory table)
+        print("📬 Traitement de la queue inventory_snapshot_queue...")
         try:
-            inventory_result = sync_inventory_smart()
-            strategy = inventory_result.get('strategy_used', 'unknown')
-            print(f"🏪 Inventaire ({strategy}): {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour, {inventory_result['stats']['skipped']} ignorés")
-            print(f"   📊 {inventory_result.get('records_processed', 0)} enregistrements traités")
+            queue_result = process_inventory_queue()
+            print(f"📬 Queue: {queue_result['inserted']} insérés, {queue_result['updated']} mis à jour, {queue_result['failed']} échoués sur {queue_result['total_pending']} pending")
         except Exception as e:
-            print(f"⚠️ Erreur lors de la synchronisation de l'inventaire: {str(e)}")
-            inventory_result = {"success": False, "error": str(e), "records_processed": 0, "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}}
+            print(f"⚠️ Erreur lors du traitement de la queue inventory: {str(e)}")
+            queue_result = {"inserted": 0, "updated": 0, "failed": 0, "total_pending": 0, "errors": [str(e)]}
+
+        # 5b. Full sync hebdomadaire (dimanche 2h) comme filet de sécurité
+        #     Rattrape les items manqués par les webhooks (variant_id, product_id, sku, etc.)
+        inventory_result = None
+        now = datetime.now()
+        if now.weekday() == 6 and now.hour == 2:
+            print("📦 Synchronisation COMPLÈTE hebdomadaire de l'inventaire...")
+            try:
+                inventory_result = sync_inventory_full()
+                print(f"🏪 Full sync: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour, {inventory_result['stats']['skipped']} ignorés")
+            except Exception as e:
+                print(f"⚠️ Erreur lors du full sync inventaire: {str(e)}")
+                inventory_result = {"success": False, "error": str(e), "records_processed": 0, "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]}}
+        else:
+            print("📦 Inventaire: pas de full sync (seulement dimanche 2h). Queue traitée.")
 
         # 6. Process draft orders between the dates
         print("📝 Traitement des draft orders...")
@@ -117,7 +130,8 @@ def process_daily_data(start_date, end_date):
             "transactions_processed": f"{len(transactions)} transactions traitées avec succès",
             "products_synchronized": products_result.get('details', {}).get('inserted', 0),
             "locations_synchronized": locations_result.get('stats', {}).get('inserted', 0),
-            "inventory_synchronized": f"Inventaire ({inventory_result.get('strategy_used', 'unknown')}): {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour - {inventory_result.get('records_processed', 0)} records",
+            "inventory_queue_processed": f"Queue: {queue_result['inserted']} insérés, {queue_result['updated']} mis à jour, {queue_result['failed']} échoués sur {queue_result['total_pending']} pending",
+            "inventory_synchronized": f"Full sync: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour" if inventory_result else "Pas de full sync (seulement dimanche 2h)",
             "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées",
             "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées"
         })

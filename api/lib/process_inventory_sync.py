@@ -408,7 +408,152 @@ def get_inventory_between_dates(start: datetime, end: datetime) -> List[Dict[str
     return filtered_records
 
 # ---------------------------------------------------------------------------
-# 6. Persistance en base de données
+# 6. Traitement de la queue webhook (inventory_snapshot_queue)
+# ---------------------------------------------------------------------------
+
+def process_inventory_queue() -> Dict[str, Any]:
+    """
+    Traite les lignes pending de inventory_snapshot_queue une par une.
+    
+    Pour chaque ligne :
+    1. Passe le status à 'processing'
+    2. UPSERT dans la table inventory (INSERT si nouveau, UPDATE si existant)
+    3. En cas de succès : status = 'completed', processed_at = NOW()
+    4. En cas d'erreur : status = 'failed', attempts += 1, last_error = message
+    
+    Le traitement ligne par ligne est important car les triggers sur inventory
+    logguent chaque changement individuellement dans inventory_history.
+    
+    Returns:
+        Dict avec les stats: inserted, updated, failed, total_pending
+    """
+    stats = {
+        "inserted": 0,
+        "updated": 0,
+        "failed": 0,
+        "total_pending": 0,
+        "errors": [],
+    }
+
+    conn = None
+    cur = None
+
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+        # 1. Récupérer toutes les lignes pending, ordonnées par date de création
+        cur.execute("""
+            SELECT id, inventory_item_id, location_id, quantities, shopify_updated_at
+            FROM inventory_snapshot_queue
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+        """)
+        pending_rows = cur.fetchall()
+        stats["total_pending"] = len(pending_rows)
+
+        if not pending_rows:
+            print("Aucune ligne pending dans la queue.")
+            return stats
+
+        print(f"Traitement de {len(pending_rows)} lignes pending dans la queue...")
+
+        for row in pending_rows:
+            queue_id, inventory_item_id, location_id, quantities, shopify_updated_at = row
+
+            try:
+                # 2. Passer le status à 'processing'
+                cur.execute("""
+                    UPDATE inventory_snapshot_queue
+                    SET status = 'processing'
+                    WHERE id = %s
+                """, (queue_id,))
+                conn.commit()
+
+                # Extraire les quantités du jsonb
+                qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
+                available = qty.get("available", 0)
+                committed = qty.get("committed", 0)
+                on_hand = qty.get("on_hand", 0)
+                incoming = qty.get("incoming", 0)
+                reserved = qty.get("reserved", 0)
+
+                # 3. UPSERT : INSERT si nouveau, UPDATE si existant
+                #    RETURNING (xmax = 0) — true when the row was freshly
+                #    inserted, false when an existing row was updated.
+                cur.execute("""
+                    INSERT INTO inventory (
+                        inventory_item_id, location_id,
+                        available, committed, on_hand, incoming, reserved,
+                        last_updated_at, synced_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (inventory_item_id, location_id)
+                    DO UPDATE SET
+                        available = EXCLUDED.available,
+                        committed = EXCLUDED.committed,
+                        on_hand = EXCLUDED.on_hand,
+                        incoming = EXCLUDED.incoming,
+                        reserved = EXCLUDED.reserved,
+                        last_updated_at = EXCLUDED.last_updated_at,
+                        synced_at = NOW()
+                    RETURNING (xmax = 0) AS inserted
+                """, (
+                    inventory_item_id, location_id,
+                    available, committed, on_hand, incoming, reserved,
+                    shopify_updated_at,
+                ))
+                was_inserted = cur.fetchone()[0]
+
+                # 4. Marquer comme completed
+                cur.execute("""
+                    UPDATE inventory_snapshot_queue
+                    SET status = 'completed',
+                        processed_at = NOW()
+                    WHERE id = %s
+                """, (queue_id,))
+                conn.commit()
+
+                if was_inserted:
+                    stats["inserted"] += 1
+                else:
+                    stats["updated"] += 1
+
+            except Exception as exc:
+                if conn is not None:
+                    conn.rollback()
+                error_msg = str(exc)[:500]
+                try:
+                    cur.execute("""
+                        UPDATE inventory_snapshot_queue
+                        SET status = 'failed',
+                            attempts = attempts + 1,
+                            last_error = %s
+                        WHERE id = %s
+                    """, (error_msg, queue_id))
+                    conn.commit()
+                except Exception:
+                    if conn is not None:
+                        conn.rollback()
+
+                stats["failed"] += 1
+                stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
+                print(f"Erreur sur queue id={queue_id}: {error_msg}")
+
+    except Exception as exc:
+        print(f"Erreur critique lors du traitement de la queue: {str(exc)}")
+        if conn is not None:
+            conn.rollback()
+        stats["errors"].append(str(exc))
+    finally:
+        if cur is not None:
+            cur.close()
+        if conn is not None:
+            conn.close()
+
+    print(f"Queue traitée: {stats['inserted']} insérés, {stats['updated']} mis à jour, {stats['failed']} échoués sur {stats['total_pending']} pending")
+    return stats
+
+# ---------------------------------------------------------------------------
+# 7. Persistance en base de données (sync Shopify API)
 # ---------------------------------------------------------------------------
 
 def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | list]:
