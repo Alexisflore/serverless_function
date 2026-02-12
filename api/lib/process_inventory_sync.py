@@ -86,6 +86,47 @@ def _iso_to_dt(date_str: str) -> datetime:
 # 2. Découverte des types de quantités
 # ---------------------------------------------------------------------------
 
+def _run_bulk_operation(bulk_mutation: str) -> str | None:
+    """
+    Lance une bulk operation Shopify ou récupère celle déjà en cours.
+    Retourne l'URL du fichier JSONL résultat, ou None si aucune donnée.
+    """
+    status_q = """
+    query {
+      currentBulkOperation {
+        id status errorCode objectCount url partialDataUrl
+      }
+    }
+    """
+    terminal = {"COMPLETED", "FAILED", "CANCELED"}
+
+    # Vérifier s'il y a déjà une opération en cours
+    current = _gql(status_q).get("currentBulkOperation")
+    if current and current.get("status") in ("CREATED", "RUNNING"):
+        print(f"Opération bulk déjà en cours (id={current['id']}, status={current['status']}). Attente...")
+    else:
+        # Lancer la mutation
+        start = _gql(bulk_mutation)
+        ue = start["bulkOperationRunQuery"]["userErrors"]
+        if ue:
+            # Vérifier si c'est une erreur "already in progress"
+            already_running = any("already in progress" in (e.get("message") or "") for e in ue)
+            if already_running:
+                print("Opération bulk déjà en cours (détecté via userErrors). Attente...")
+            else:
+                raise RuntimeError(ue)
+
+    # Poll jusqu'à la fin
+    while True:
+        time.sleep(5)
+        st = _gql(status_q)["currentBulkOperation"]
+        print(f"[Bulk] status={st['status']} objects={st.get('objectCount')} url={bool(st.get('url'))}")
+        if st["status"] in terminal:
+            if st["status"] != "COMPLETED":
+                raise RuntimeError(f"Bulk ended with {st['status']} error={st.get('errorCode')}")
+            return st.get("url")
+
+
 def discover_quantity_names() -> list[str]:
     """
     Ask the shop which inventory states (quantity names) are supported.
@@ -168,30 +209,7 @@ def get_bulk_inventory_data_filtered(
     '''
 
     print(f"Démarrage de l'export bulk pour les items mis à jour depuis {formatted_date}")
-    start = _gql(bulk_query)
-    ue = start["bulkOperationRunQuery"]["userErrors"]
-    if ue:
-        raise RuntimeError(ue)
-
-    # Poll until COMPLETED
-    status_q = """
-    query {
-      currentBulkOperation {
-        id status errorCode objectCount url partialDataUrl
-      }
-    }
-    """
-    terminal = {"COMPLETED", "FAILED", "CANCELED"}
-    url = None
-    while True:
-        time.sleep(5)
-        st = _gql(status_q)["currentBulkOperation"]
-        print(f"[Bulk] status={st['status']} objects={st.get('objectCount')} url={bool(st.get('url'))}")
-        if st["status"] in terminal:
-            if st["status"] != "COMPLETED":
-                raise RuntimeError(f"Bulk ended with {st['status']} error={st.get('errorCode')}")
-            url = st["url"]
-            break
+    url = _run_bulk_operation(bulk_query)
 
     # Process data directly from URL without saving to file
     if url:
@@ -441,11 +459,12 @@ def process_inventory_queue() -> Dict[str, Any]:
     try:
         conn = _pg_connect()
         cur = conn.cursor()
-        # 1. Récupérer toutes les lignes pending, ordonnées par date de création
+        # 1. Récupérer les lignes pending + failed (si < 6 tentatives), ordonnées par date de création
         cur.execute("""
             SELECT id, inventory_item_id, location_id, quantities, shopify_updated_at
             FROM inventory_snapshot_queue
             WHERE status = 'pending'
+               OR (status = 'failed' AND attempts < 6)
             ORDER BY created_at ASC
         """)
         pending_rows = cur.fetchall()
@@ -572,11 +591,14 @@ def process_inventory_queue() -> Dict[str, Any]:
 # 7. Persistance en base de données (sync Shopify API)
 # ---------------------------------------------------------------------------
 
-def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | list]:
+def process_inventory_records(records: List[Dict[str, Any]], batch_size: int = 1000) -> Dict[str, int | list]:
     """
     Insère ou met à jour les enregistrements d'inventaire dans PostgreSQL.
+    Utilise execute_values pour envoyer les données en batch (beaucoup plus rapide).
     """
-    print(f"Début du traitement de {len(records)} enregistrements d'inventaire...")
+    from psycopg2.extras import execute_values
+
+    print(f"Début du traitement de {len(records)} enregistrements d'inventaire (batch_size={batch_size})...")
     stats = {
         "inserted": 0,
         "updated": 0,
@@ -591,14 +613,13 @@ def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | 
     conn = _pg_connect()
     cur = conn.cursor()
 
-    # Requête d'insertion (UPSERT avec ON CONFLICT)
     upsert_q = """
         INSERT INTO inventory (
             inventory_item_id, location_id, variant_id, product_id, sku,
-            available, committed, damaged, incoming, on_hand, 
+            available, committed, damaged, incoming, on_hand,
             quality_control, reserved, safety_stock,
             last_updated_at, scheduled_changes, synced_at
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES %s
         ON CONFLICT (inventory_item_id, location_id)
         DO UPDATE SET
             variant_id = EXCLUDED.variant_id,
@@ -616,21 +637,30 @@ def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | 
             scheduled_changes = EXCLUDED.scheduled_changes,
             updated_at = NOW(),
             synced_at = EXCLUDED.synced_at
+        WHERE
+            inventory.available IS DISTINCT FROM EXCLUDED.available
+            OR inventory.committed IS DISTINCT FROM EXCLUDED.committed
+            OR inventory.damaged IS DISTINCT FROM EXCLUDED.damaged
+            OR inventory.incoming IS DISTINCT FROM EXCLUDED.incoming
+            OR inventory.on_hand IS DISTINCT FROM EXCLUDED.on_hand
+            OR inventory.quality_control IS DISTINCT FROM EXCLUDED.quality_control
+            OR inventory.reserved IS DISTINCT FROM EXCLUDED.reserved
+            OR inventory.safety_stock IS DISTINCT FROM EXCLUDED.safety_stock
+        RETURNING (xmax = 0) AS inserted
     """
 
+    now = datetime.now()
+
     try:
-        for i, record in enumerate(records):
-            if i % 100 == 0 and i > 0:
-                print(f"Progression: {i}/{len(records)} enregistrements traités")
-            
+        # Préparer toutes les tuples d'un coup
+        all_values = []
+        for record in records:
             try:
-                # Conversion des dates
                 last_updated_at = None
                 if record.get("last_updated_at"):
                     last_updated_at = _iso_to_dt(record["last_updated_at"])
-                
-                # Préparation des paramètres
-                params = (
+
+                all_values.append((
                     record.get("inventory_item_id"),
                     record.get("location_id"),
                     record.get("variant_id"),
@@ -646,33 +676,36 @@ def process_inventory_records(records: List[Dict[str, Any]]) -> Dict[str, int | 
                     record.get("safety_stock", 0),
                     last_updated_at,
                     record.get("scheduled_changes", "[]"),
-                    datetime.now(),  # synced_at
-                )
-                
-                # Vérifier si l'enregistrement existe déjà pour les stats
-                check_q = """
-                    SELECT 1 FROM inventory 
-                    WHERE inventory_item_id = %s AND location_id = %s
-                """
-                cur.execute(check_q, (record.get("inventory_item_id"), record.get("location_id")))
-                exists = cur.fetchone()
-                
-                # Exécuter l'upsert
-                cur.execute(upsert_q, params)
-                
-                if exists:
-                    stats["updated"] += 1
-                else:
-                    stats["inserted"] += 1
-                    
+                    now,
+                ))
             except Exception as exc:
-                stats["errors"].append(f"Erreur sur inventory_item_id={record.get('inventory_item_id')}, location_id={record.get('location_id')}: {str(exc)}")
                 stats["skipped"] += 1
-                print(f"Erreur sur enregistrement: {str(exc)}")
+                stats["errors"].append(f"Erreur préparation inventory_item_id={record.get('inventory_item_id')}: {str(exc)}")
 
-        print("Validation des changements (commit)...")
-        conn.commit()
-        
+        # Envoyer par batch via execute_values
+        for i in range(0, len(all_values), batch_size):
+            batch = all_values[i:i + batch_size]
+            batch_end = min(i + batch_size, len(all_values))
+            print(f"Batch {i // batch_size + 1}: enregistrements {i + 1}-{batch_end}/{len(all_values)}")
+
+            try:
+                results = execute_values(
+                    cur, upsert_q, batch,
+                    template="(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    fetch=True,
+                )
+                for (was_inserted,) in results:
+                    if was_inserted:
+                        stats["inserted"] += 1
+                    else:
+                        stats["updated"] += 1
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                stats["errors"].append(f"Erreur batch {i // batch_size + 1}: {str(exc)}")
+                stats["skipped"] += len(batch)
+                print(f"Erreur sur batch: {str(exc)}")
+
     except Exception as exc:
         print(f"Erreur critique, rollback: {str(exc)}")
         conn.rollback()
@@ -1209,30 +1242,7 @@ def sync_inventory_full() -> Dict[str, Any]:
         '''
 
         print("Démarrage de l'export bulk complet (TOUS les items)")
-        start = _gql(bulk_query)
-        ue = start["bulkOperationRunQuery"]["userErrors"]
-        if ue:
-            raise RuntimeError(ue)
-
-        # Poll until COMPLETED
-        status_q = """
-        query {
-          currentBulkOperation {
-            id status errorCode objectCount url partialDataUrl
-          }
-        }
-        """
-        terminal = {"COMPLETED", "FAILED", "CANCELED"}
-        url = None
-        while True:
-            time.sleep(5)
-            st = _gql(status_q)["currentBulkOperation"]
-            print(f"[Bulk] status={st['status']} objects={st.get('objectCount')} url={bool(st.get('url'))}")
-            if st["status"] in terminal:
-                if st["status"] != "COMPLETED":
-                    raise RuntimeError(f"Bulk ended with {st['status']} error={st.get('errorCode')}")
-                url = st["url"]
-                break
+        url = _run_bulk_operation(bulk_query)
 
         # Process data directly from URL
         if url:
