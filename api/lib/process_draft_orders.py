@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import psycopg2
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from api.lib.utils import get_source_location
 
@@ -41,6 +41,19 @@ def _iso_to_dt(date_str: str) -> datetime:
     if date_str.endswith("Z"):
         date_str = date_str.replace("Z", "+00:00")
     return datetime.fromisoformat(date_str)
+
+def _parse_tags_to_list(tags_str: Optional[str]) -> Optional[list]:
+    """Parse une chaîne de tags Shopify en liste Python (même logique que pour orders)."""
+    if not tags_str or tags_str.strip() == '':
+        return None
+    try:
+        if tags_str.startswith('['):
+            tags_list = json.loads(tags_str)
+        else:
+            tags_list = [tag.strip() for tag in tags_str.split(',') if tag.strip()]
+        return tags_list if tags_list else None
+    except Exception:
+        return None
 
 # ---------------------------------------------------------------------------
 # 2. Récupération des draft orders depuis Shopify
@@ -111,9 +124,8 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
     completed_at = draft_order.get("completed_at")
     order_id = draft_order.get("order_id")
     tags = draft_order.get("tags", "")
-    
-    # Convert tags string to list for get_source_location function
-    tags_list = [tag.strip() for tag in tags.split(',') if tag.strip()] if tags else []
+    tags_list = _parse_tags_to_list(tags)
+    tags_list_for_location = tags_list or []
     
     # Debug: Afficher les informations importantes du draft order
     print(f"  - Status: {status}")
@@ -163,13 +175,15 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "transaction_currency": currency,
             "source_name": "draft_order",
             "quantity": quantity,
-            "source_location": get_source_location(tags_list),
+            "source_location": get_source_location(tags_list_for_location),
             "sku": item.get("sku"),
             "variant_id": item.get("variant_id"),
             "variant_title": item.get("variant_title"),
             "name": item.get("name"),
             "draft_order_name": draft_order_name,
             "draft_order_note": draft_order_note,
+            "tags": tags or None,
+            "tags_list": tags_list,
         }
         transactions.append(item_transaction)
         
@@ -198,13 +212,15 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
                 "transaction_currency": currency,
                 "source_name": "draft_order",
                 "quantity": quantity,
-                "source_location": get_source_location(tags_list),
+                "source_location": get_source_location(tags_list_for_location),
                 "sku": item.get("sku"),
                 "variant_id": item.get("variant_id"),
                 "variant_title": item.get("variant_title"),
                 "name": item.get("name"),
                 "draft_order_name": draft_order_name,
                 "draft_order_note": draft_order_note,
+                "tags": tags or None,
+                "tags_list": tags_list,
             }
             transactions.append(tax_transaction)
     
@@ -232,13 +248,15 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
             "transaction_currency": currency,
             "source_name": "draft_order",
             "quantity": 1,
-            "source_location": get_source_location(tags_list),
+            "source_location": get_source_location(tags_list_for_location),
             "sku": None,
             "variant_id": None,
             "variant_title": None,
             "name": None,
             "draft_order_name": draft_order_name,
             "draft_order_note": draft_order_note,
+            "tags": tags or None,
+            "tags_list": tags_list,
         }
         transactions.append(shipping_transaction)
     
@@ -291,8 +309,9 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
             _draft_id, created_at, completed_at, order_id, client_id,
             product_id, type, account_type, transaction_description,
             amount, status, transaction_currency, source_name, quantity, source_location,
-            sku, variant_id, variant_title, name, draft_order_name, draft_order_note
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            sku, variant_id, variant_title, name, draft_order_name, draft_order_note,
+            tags, tags_list
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
@@ -336,6 +355,10 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
                             completed_at = _iso_to_dt(completed_at)
                         
                         # Insert transaction
+                        tags_list_value = transaction.get("tags_list")
+                        if isinstance(tags_list_value, list):
+                            tags_list_value = json.dumps(tags_list_value)
+
                         insert_params = (
                             transaction["_draft_id"],
                             created_at,
@@ -358,6 +381,8 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
                             transaction.get("name"),
                             transaction.get("draft_order_name"),
                             transaction.get("draft_order_note"),
+                            transaction.get("tags"),
+                            tags_list_value,
                         )
                         
                         cur.execute(insert_query, insert_params)
