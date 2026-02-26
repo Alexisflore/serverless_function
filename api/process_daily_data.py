@@ -12,7 +12,7 @@ from api.lib.process_transactions import get_transactions_between_dates, process
 from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
-from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders
+from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders, process_draft_orders_delete_queue
 from api.lib.process_inventory_sync import sync_inventory_full, process_inventory_queue
 from api.lib.process_customer import sync_customers_since_date
 # Force dynamic execution to prevent caching
@@ -99,7 +99,16 @@ def process_daily_data(start_date, end_date):
             print(f"⚠️ Erreur lors du traitement des draft orders: {str(e)}")
             draft_result = {"transactions_inserted": 0, "transactions_updated": 0, "transactions_skipped": 0, "errors": [str(e)]}
 
-        # 6.1 Process customers between the dates
+        # 6.1 Process draft orders delete queue
+        print("🗑️ Traitement de la queue draft_orders_delete_queue...")
+        try:
+            delete_queue_result = process_draft_orders_delete_queue()
+            print(f"🗑️ Queue delete: {delete_queue_result.get('deleted', 0)} draft orders marqués deleted, {delete_queue_result.get('failed', 0)} échecs sur {delete_queue_result.get('total_pending', 0)} pending")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du traitement de la queue delete: {str(e)}")
+            delete_queue_result = {"deleted": 0, "failed": 0, "total_pending": 0, "errors": [str(e)]}
+
+        # 6.2 Process customers between the dates
         print("📝 Traitement des customers...")
         try:
             result_customers = sync_customers_since_date(end_datetime)
@@ -133,6 +142,7 @@ def process_daily_data(start_date, end_date):
             "inventory_queue_processed": f"Queue: {queue_result['inserted']} insérés, {queue_result['updated']} mis à jour, {queue_result['failed']} échoués sur {queue_result['total_pending']} pending",
             "inventory_synchronized": f"Full sync: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour" if inventory_result else "Pas de full sync (seulement dimanche 2h)",
             "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées",
+            "draft_orders_delete_queue_processed": f"Queue delete: {delete_queue_result.get('deleted', 0)} marqués deleted, {delete_queue_result.get('failed', 0)} échecs sur {delete_queue_result.get('total_pending', 0)} pending",
             "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées"
         })
         

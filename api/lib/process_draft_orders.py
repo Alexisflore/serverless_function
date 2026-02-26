@@ -429,6 +429,133 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
     return stats
 
 # ---------------------------------------------------------------------------
+# 4b. Traitement de la queue de suppression de draft orders
+# ---------------------------------------------------------------------------
+
+def process_draft_orders_delete_queue() -> Dict[str, Any]:
+    """
+    Traite les entrées pending de draft_orders_delete_queue.
+
+    Pour chaque entrée :
+    1. Passe le status à 'processing'
+    2. Met à jour le status du draft order en 'deleted' dans la table draft_order
+    3. En cas de succès : status = 'completed', processed_at = NOW()
+    4. En cas d'erreur : status = 'failed', attempts += 1, last_error = message
+
+    Returns:
+        Dict avec les stats: deleted, failed, total_pending, errors
+    """
+    stats = {
+        "deleted": 0,
+        "failed": 0,
+        "total_pending": 0,
+        "errors": [],
+    }
+
+    conn = None
+    cur = None
+
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, draft_order_id
+            FROM draft_orders_delete_queue
+            WHERE status = 'pending'
+               OR (status = 'failed' AND attempts < 6)
+            ORDER BY created_at ASC
+        """)
+        pending_rows = cur.fetchall()
+        stats["total_pending"] = len(pending_rows)
+
+        if not pending_rows:
+            print("Aucune entrée pending dans draft_orders_delete_queue.")
+            return stats
+
+        print(f"Traitement de {len(pending_rows)} entrées pending dans draft_orders_delete_queue...")
+
+        for row in pending_rows:
+            queue_id, draft_order_id = row
+
+            try:
+                # Passer le status à 'processing'
+                cur.execute("""
+                    UPDATE draft_orders_delete_queue
+                    SET status = 'processing',
+                        attempts = attempts + 1
+                    WHERE id = %s
+                """, (queue_id,))
+                conn.commit()
+
+                # Mettre à jour le status du draft order en 'deleted'
+                cur.execute("""
+                    UPDATE draft_order
+                    SET status = 'deleted'
+                    WHERE _draft_id = %s
+                """, (draft_order_id,))
+                updated_count = cur.rowcount
+
+                # Marquer comme completed
+                cur.execute("""
+                    UPDATE draft_orders_delete_queue
+                    SET status = 'completed',
+                        processed_at = NOW()
+                    WHERE id = %s
+                """, (queue_id,))
+                conn.commit()
+
+                stats["deleted"] += 1
+                print(f"  - ✅ Draft order {draft_order_id} marqué 'deleted' ({updated_count} ligne(s) mises à jour)")
+
+            except Exception as e:
+                error_msg = str(e)
+                try:
+                    conn.rollback()
+                    cur.execute("""
+                        UPDATE draft_orders_delete_queue
+                        SET status = 'failed',
+                            last_error = %s
+                        WHERE id = %s
+                    """, (error_msg, queue_id))
+                    conn.commit()
+                except Exception:
+                    pass
+                stats["failed"] += 1
+                stats["errors"].append(f"draft_order_id={draft_order_id}: {error_msg}")
+                print(f"  - ❌ Erreur pour draft_order_id {draft_order_id}: {error_msg}")
+
+    except Exception as e:
+        error_msg = f"Erreur critique lors du traitement de la queue delete: {str(e)}"
+        print(f"❌ {error_msg}")
+        stats["errors"].append(error_msg)
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    print(f"\n📊 Résultats queue delete:")
+    print(f"  - Total pending: {stats['total_pending']}")
+    print(f"  - Draft orders marqués deleted: {stats['deleted']}")
+    print(f"  - Échecs: {stats['failed']}")
+
+    return stats
+
+
+# ---------------------------------------------------------------------------
 # 5. Fonction principale de récupération et traitement
 # ---------------------------------------------------------------------------
 
