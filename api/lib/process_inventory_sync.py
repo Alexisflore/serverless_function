@@ -431,35 +431,46 @@ def get_inventory_between_dates(start: datetime, end: datetime) -> List[Dict[str
 
 def process_inventory_queue() -> Dict[str, Any]:
     """
-    Traite les lignes pending de inventory_snapshot_queue une par une.
-    
-    Pour chaque ligne :
-    1. Passe le status à 'processing'
-    2. UPSERT dans la table inventory (INSERT si nouveau, UPDATE si existant)
-    3. En cas de succès : status = 'completed', processed_at = NOW()
-    4. En cas d'erreur : status = 'failed', attempts += 1, last_error = message
-    
-    Le traitement ligne par ligne est important car les triggers sur inventory
-    logguent chaque changement individuellement dans inventory_history.
-    
+    Traite les lignes pending de inventory_snapshot_queue.
+
+    Phase A : UPSERT dans la table inventory (triggers desactives).
+    Phase B : Pour chaque couple unique (inventory_item_id, location_id)
+              traite avec succes, appeler ShopifyQL pour recuperer les
+              ajustements du jour et les inserer dans inventory_history
+              avec des valeurs absolues de stock.
+
     Returns:
-        Dict avec les stats: inserted, updated, failed, total_pending
+        Dict avec les stats: inserted, updated, failed, total_pending,
+        history_inserted, history_errors
     """
+    from api.lib.shopifyql_helpers import (
+        fetch_all_locations,
+        fetch_adjustments_for_pair,
+        insert_adjustments_into_history,
+    )
+    import datetime as _dt
+
     stats = {
         "inserted": 0,
         "updated": 0,
         "failed": 0,
         "total_pending": 0,
+        "history_inserted": 0,
+        "history_errors": [],
         "errors": [],
     }
 
     conn = None
     cur = None
+    processed_pairs: set[tuple[str, str]] = set()
 
     try:
         conn = _pg_connect()
         cur = conn.cursor()
-        # 1. Récupérer les lignes pending + failed (si < 6 tentatives), ordonnées par date de création
+
+        # ---------------------------------------------------------------
+        # Phase A : UPSERT inventory
+        # ---------------------------------------------------------------
         cur.execute("""
             SELECT id, inventory_item_id, location_id, quantities, shopify_updated_at
             FROM inventory_snapshot_queue
@@ -474,17 +485,15 @@ def process_inventory_queue() -> Dict[str, Any]:
             print("Aucune ligne pending dans la queue.")
             return stats
 
-        print(f"Traitement de {len(pending_rows)} lignes pending dans la queue...")
+        print(f"[Phase A] Traitement de {len(pending_rows)} lignes pending ...")
 
         MAX_ATTEMPTS = 3
 
         for row in pending_rows:
             queue_id, inventory_item_id, location_id, quantities, shopify_updated_at = row
 
-            # Retry jusqu'à MAX_ATTEMPTS fois avant de marquer comme failed
             for attempt in range(1, MAX_ATTEMPTS + 1):
                 try:
-                    # 2. Passer le status à 'processing'
                     cur.execute("""
                         UPDATE inventory_snapshot_queue
                         SET status = 'processing',
@@ -493,7 +502,6 @@ def process_inventory_queue() -> Dict[str, Any]:
                     """, (attempt, queue_id))
                     conn.commit()
 
-                    # Extraire les quantités du jsonb
                     qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
                     available = qty.get("available", 0)
                     committed = qty.get("committed", 0)
@@ -501,9 +509,6 @@ def process_inventory_queue() -> Dict[str, Any]:
                     incoming = qty.get("incoming", 0)
                     reserved = qty.get("reserved", 0)
 
-                    # 3. UPSERT : INSERT si nouveau, UPDATE si existant
-                    #    RETURNING (xmax = 0) — true when the row was freshly
-                    #    inserted, false when an existing row was updated.
                     cur.execute("""
                         INSERT INTO inventory (
                             inventory_item_id, location_id,
@@ -527,7 +532,6 @@ def process_inventory_queue() -> Dict[str, Any]:
                     ))
                     was_inserted = cur.fetchone()[0]
 
-                    # 4. Marquer comme completed
                     cur.execute("""
                         UPDATE inventory_snapshot_queue
                         SET status = 'completed',
@@ -541,7 +545,7 @@ def process_inventory_queue() -> Dict[str, Any]:
                     else:
                         stats["updated"] += 1
 
-                    # Succès → sortir de la boucle de retry
+                    processed_pairs.add((str(inventory_item_id), str(location_id)))
                     break
 
                 except Exception as exc:
@@ -550,12 +554,10 @@ def process_inventory_queue() -> Dict[str, Any]:
                     error_msg = str(exc)[:500]
 
                     if attempt < MAX_ATTEMPTS:
-                        # Tentative échouée mais il reste des essais
-                        print(f"Queue id={queue_id}: tentative {attempt}/{MAX_ATTEMPTS} échouée — {error_msg}")
+                        print(f"Queue id={queue_id}: tentative {attempt}/{MAX_ATTEMPTS} echouee — {error_msg}")
                         time.sleep(1)
                         continue
 
-                    # Dernière tentative échouée → marquer comme failed
                     try:
                         cur.execute("""
                             UPDATE inventory_snapshot_queue
@@ -571,7 +573,39 @@ def process_inventory_queue() -> Dict[str, Any]:
 
                     stats["failed"] += 1
                     stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
-                    print(f"Queue id={queue_id}: échec définitif après {MAX_ATTEMPTS} tentatives — {error_msg}")
+                    print(f"Queue id={queue_id}: echec definitif apres {MAX_ATTEMPTS} tentatives — {error_msg}")
+
+        print(f"[Phase A] {stats['inserted']} inseres, {stats['updated']} mis a jour, {stats['failed']} echoues")
+
+        # ---------------------------------------------------------------
+        # Phase B : ShopifyQL -> inventory_history
+        # ---------------------------------------------------------------
+        if processed_pairs:
+            print(f"\n[Phase B] {len(processed_pairs)} couples uniques a traiter via ShopifyQL ...")
+            id_to_name = fetch_all_locations()
+            today = _dt.date.today()
+
+            for item_id, loc_id in processed_pairs:
+                try:
+                    loc_name = id_to_name.get(str(loc_id))
+                    if not loc_name:
+                        print(f"  [WARN] location_id={loc_id} introuvable dans le mapping — skip")
+                        continue
+
+                    adjustments = fetch_adjustments_for_pair(item_id, loc_name, today)
+                    if not adjustments:
+                        continue
+
+                    n = insert_adjustments_into_history(conn, int(item_id), int(loc_id), adjustments)
+                    stats["history_inserted"] += n
+                    if n:
+                        print(f"  item={item_id} loc={loc_id}: {n} lignes inserees dans inventory_history")
+                except Exception as exc:
+                    err = f"item={item_id} loc={loc_id}: {str(exc)[:300]}"
+                    stats["history_errors"].append(err)
+                    print(f"  [ERR] {err}")
+
+            print(f"[Phase B] {stats['history_inserted']} lignes inserees dans inventory_history, {len(stats['history_errors'])} erreurs")
 
     except Exception as exc:
         print(f"Erreur critique lors du traitement de la queue: {str(exc)}")
@@ -584,7 +618,7 @@ def process_inventory_queue() -> Dict[str, Any]:
         if conn is not None:
             conn.close()
 
-    print(f"Queue traitée: {stats['inserted']} insérés, {stats['updated']} mis à jour, {stats['failed']} échoués sur {stats['total_pending']} pending")
+    print(f"Queue traitee: {stats['inserted']} inseres, {stats['updated']} mis a jour, {stats['failed']} echoues sur {stats['total_pending']} pending")
     return stats
 
 # ---------------------------------------------------------------------------
