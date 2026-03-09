@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from api.lib.utils import get_store_context
+
 def _shopify_headers() -> Dict[str, str]:
     """Retourne les headers pour les requêtes Shopify API"""
     load_dotenv()
@@ -215,14 +217,17 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
     if not locations:
         return {"inserted": 0, "updated": 0, "errors": 0}
     
+    _ctx = get_store_context()
+
     insert_sql = """
     INSERT INTO locations (
         _location_id, name, active, address1, address2, city, province, 
         province_code, country, country_code, country_name, 
         localized_country_name, localized_province_name, zip, phone, 
-        legacy, admin_graphql_api_id, created_at, updated_at, synced_at
+        legacy, admin_graphql_api_id, created_at, updated_at, synced_at,
+        data_source, company_code, commercial_organisation
     ) VALUES (
-        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
     )
     ON CONFLICT (_location_id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -278,7 +283,8 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
                     location.get('admin_graphql_api_id'),         # admin_graphql_api_id
                     parse_datetime(location.get('created_at')),   # created_at
                     parse_datetime(location.get('updated_at')),   # updated_at
-                    current_time                                  # synced_at
+                    current_time,                                 # synced_at
+                    _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                 )
                 
                 cursor.execute(insert_sql, values)

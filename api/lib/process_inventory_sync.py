@@ -30,6 +30,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from api.lib.utils import get_store_context
+
 # ---------------------------------------------------------------------------
 # 1. Configuration et utilitaires de base
 # ---------------------------------------------------------------------------
@@ -509,12 +511,14 @@ def process_inventory_queue() -> Dict[str, Any]:
                     incoming = qty.get("incoming", 0)
                     reserved = qty.get("reserved", 0)
 
+                    _ctx = get_store_context()
                     cur.execute("""
                         INSERT INTO inventory (
                             inventory_item_id, location_id,
                             available, committed, on_hand, incoming, reserved,
-                            last_updated_at, synced_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                            last_updated_at, synced_at,
+                            data_source, company_code, commercial_organisation
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
                         ON CONFLICT (inventory_item_id, location_id)
                         DO UPDATE SET
                             available = EXCLUDED.available,
@@ -529,6 +533,7 @@ def process_inventory_queue() -> Dict[str, Any]:
                         inventory_item_id, location_id,
                         available, committed, on_hand, incoming, reserved,
                         shopify_updated_at,
+                        _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                     ))
                     was_inserted = cur.fetchone()[0]
 
@@ -647,12 +652,15 @@ def process_inventory_records(records: List[Dict[str, Any]], batch_size: int = 1
     conn = _pg_connect()
     cur = conn.cursor()
 
+    _ctx = get_store_context()
+
     upsert_q = """
         INSERT INTO inventory (
             inventory_item_id, location_id, variant_id, product_id, sku,
             available, committed, damaged, incoming, on_hand,
             quality_control, reserved, safety_stock,
-            last_updated_at, scheduled_changes, synced_at
+            last_updated_at, scheduled_changes, synced_at,
+            data_source, company_code, commercial_organisation
         ) VALUES %s
         ON CONFLICT (inventory_item_id, location_id)
         DO UPDATE SET
@@ -711,6 +719,7 @@ def process_inventory_records(records: List[Dict[str, Any]], batch_size: int = 1
                     last_updated_at,
                     record.get("scheduled_changes", "[]"),
                     now,
+                    _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                 ))
             except Exception as exc:
                 stats["skipped"] += 1
@@ -725,7 +734,7 @@ def process_inventory_records(records: List[Dict[str, Any]], batch_size: int = 1
             try:
                 results = execute_values(
                     cur, upsert_q, batch,
-                    template="(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    template="(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     fetch=True,
                 )
                 for (was_inserted,) in results:

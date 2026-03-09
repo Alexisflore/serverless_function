@@ -21,6 +21,7 @@ import logging
 
 # Configuration du logging
 from api.lib.logging_config import get_logger
+from api.lib.utils import get_store_context
 logger = get_logger('process_transactions')
 
 
@@ -458,7 +459,7 @@ def get_refund_details(
     Retourne une liste d'items détaillés liés au remboursement.
     Traite à la fois les refund_line_items et les order_adjustments.
     """
-    store_domain = "adam-lippes.myshopify.com"
+    store_domain = os.getenv("SHOPIFY_STORE_DOMAIN")
     api_version = "2024-10"
     url_refund = (
         f"https://{store_domain}/admin/api/{api_version}/orders/"
@@ -1066,7 +1067,7 @@ def extract_tips_transactions(order: Dict[str, Any], order_id: str, client_id: s
 # ---------------------------------------------------------------------------
 
 def get_transactions_by_order(order_id: str) -> List[Dict[str, Any]]:
-    store_domain = "adam-lippes.myshopify.com"
+    store_domain = os.getenv("SHOPIFY_STORE_DOMAIN")
     api_version = "2024-10"
 
     # 3.1 Charge l'ordre complet
@@ -1584,7 +1585,7 @@ def get_transactions_between_dates(start: datetime, end: datetime, orders_id_to_
     formatted_start = start.isoformat()
     formatted_end = end.isoformat()
 
-    store_domain = "adam-lippes.myshopify.com"
+    store_domain = os.getenv("SHOPIFY_STORE_DOMAIN")
     api_version = "2024-10"
     url = (
         f"https://{store_domain}/admin/api/{api_version}/orders.json"
@@ -1686,13 +1687,16 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
             stats["deleted"] = deleted_count
             logger.info(f"{deleted_count} transaction(s) supprimée(s)")
 
+        _ctx = get_store_context()
+
         insert_q = """
             INSERT INTO transaction (
                 date, order_id, client_id, account_type, transaction_description,
                 shop_amount, amount_currency, transaction_currency, location_id, source_name, status,
                 product_id, variant_id, payment_method_name, orders_details_id, quantity, exchange_rate, shop_currency,
-                cogs_unit, cogs_total
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                cogs_unit, cogs_total,
+                data_source, company_code, commercial_organisation
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """
 
         update_q = """
@@ -1862,6 +1866,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                     tx.get("shop_currency"),
                                     tx.get("cogs_unit"),
                                     tx.get("cogs_total"),
+                                    _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                                 ),
                             )
                             stats["inserted"] += 1
@@ -1891,6 +1896,7 @@ def process_transactions(txs: List[Dict[str, Any]]) -> Dict[str, int | list]:
                                 tx.get("shop_currency"),
                                 tx.get("cogs_unit"),
                                 tx.get("cogs_total"),
+                                _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                             ),
                         )
                         stats["inserted"] += 1

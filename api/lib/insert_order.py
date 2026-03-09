@@ -4,7 +4,7 @@ import json
 import logging
 from dotenv import load_dotenv
 from datetime import datetime
-from api.lib.utils import get_source_location
+from api.lib.utils import get_source_location, get_store_context
 
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
@@ -436,7 +436,9 @@ def insert_order(order_data):
                     "market": extract_market_from_tags(order.get('tags', 'US')),  # market extrait des tags
                     "source_location": source_location,  # source_location extrait des tags
 
-                    "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None
+                    "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None,
+
+                    **get_store_context(),
                 }
                 
                 # Extraire les informations de taxes (jusqu'à 5 taxes différentes)
@@ -617,7 +619,9 @@ def insert_order(order_data):
                             "variant_id": line_item.get('variant_id'), # line_items > variant_id
                             "variant_inventory_management": line_item.get('variant_inventory_management'), # line_items > variant_inventory_management
                             "variant_title": line_item.get('variant_title'), # line_items > variant_title
-                            "vendor": line_item.get('vendor')          # line_items > vendor
+                            "vendor": line_item.get('vendor'),          # line_items > vendor
+
+                            **get_store_context(),
                         }
                         
                         # Extraire les informations de taxes (jusqu'à 5 taxes)
