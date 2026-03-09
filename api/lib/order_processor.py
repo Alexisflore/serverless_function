@@ -1,6 +1,7 @@
 import logging
 import json
 from api.lib.insert_order import insert_order
+from api.lib.shopify_api import fetch_order_metafields
 
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
@@ -16,20 +17,28 @@ def process_orders(orders):
     Returns:
         dict: Statistics about the operations performed
     """
-    # Créer la structure de données pour insérer les commandes
     order_data = {"orders": []}
     
-    # Traiter les commandes
     for order in orders:
         try:
-            # Ajouter la commande à la liste des commandes à traiter
             order_data["orders"].append(order)
         except Exception as e:
             logger.error(f"Error processing order {order.get('id', 'unknown')}: {str(e)}")
-    
-    # Insérer directement les commandes dans la base de données
+
+    order_ids = [o["id"] for o in order_data["orders"] if o.get("id")]
+    metafields_map = {}
+    if order_ids:
+        try:
+            metafields_map = fetch_order_metafields(order_ids)
+            logger.info(f"Fetched ORDER_TYPE metafield for {sum(1 for v in metafields_map.values() if v)} / {len(order_ids)} orders")
+        except Exception as e:
+            logger.error(f"Failed to fetch order metafields: {e}")
+
+    for order in order_data["orders"]:
+        oid = str(order.get("id", ""))
+        order["_metafield_order_type"] = metafields_map.get(oid)
+
     logger.info(f"Inserting {len(order_data['orders'])} orders into database...")
     result = insert_order(order_data)
     
-    # Retourner les statistiques
     return result

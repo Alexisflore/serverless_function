@@ -1,5 +1,80 @@
 import requests
 import os
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _graphql_request(query, variables=None, timeout=30):
+    store_domain = os.environ.get("SHOPIFY_STORE_DOMAIN")
+    access_token = os.environ.get("SHOPIFY_ACCESS_TOKEN")
+    api_version = os.environ.get("SHOPIFY_API_VERSION")
+    url = f"https://{store_domain}/admin/api/{api_version}/graphql.json"
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json",
+    }
+    resp = requests.post(url, headers=headers, json={"query": query, "variables": variables or {}}, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
+    if "errors" in data and data["errors"]:
+        raise RuntimeError(f"Shopify GraphQL errors: {data['errors']}")
+    return data.get("data", {})
+
+
+def fetch_order_metafields(order_ids, namespace="custom", key="order_type", batch_size=100):
+    """
+    Batch-fetch a specific metafield for a list of order IDs using GraphQL nodes query.
+
+    Args:
+        order_ids: List of Shopify order IDs (numeric, e.g. [1234567890, ...])
+        namespace: Metafield namespace (default "custom")
+        key: Metafield key (default "ORDER_TYPE")
+        batch_size: How many orders to query per GraphQL call (max ~250)
+
+    Returns:
+        dict mapping order_id (str) -> metafield value (str or None)
+    """
+    result = {}
+
+    for i in range(0, len(order_ids), batch_size):
+        batch = order_ids[i:i + batch_size]
+        gids = [f"gid://shopify/Order/{oid}" for oid in batch]
+
+        query = """
+        query GetOrderMetafields($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on Order {
+              id
+              metafield(namespace: "%s", key: "%s") {
+                value
+              }
+            }
+          }
+        }
+        """ % (namespace, key)
+
+        try:
+            data = _graphql_request(query, {"ids": gids})
+            nodes = data.get("nodes") or []
+            for node in nodes:
+                if not node:
+                    continue
+                gid = node.get("id", "")
+                numeric_id = gid.split("/")[-1] if "/" in gid else gid
+                mf = node.get("metafield")
+                result[str(numeric_id)] = mf["value"] if mf else None
+        except Exception as e:
+            logger.error(f"Error fetching metafields for batch starting at index {i}: {e}")
+            for oid in batch:
+                result.setdefault(str(oid), None)
+
+        if i + batch_size < len(order_ids):
+            time.sleep(0.5)
+
+    return result
+
 
 def get_daily_orders(start_date, end_date):
     """

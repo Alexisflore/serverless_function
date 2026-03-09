@@ -436,7 +436,9 @@ def insert_order(order_data):
                     "market": extract_market_from_tags(order.get('tags', 'US')),  # market extrait des tags
                     "source_location": source_location,  # source_location extrait des tags
 
-                    "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None
+                    "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None,
+
+                    "order_type": order.get('_metafield_order_type'),
                 }
                 
                 # Extraire les informations de taxes (jusqu'à 5 taxes différentes)
