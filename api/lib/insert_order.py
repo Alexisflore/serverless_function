@@ -437,7 +437,8 @@ def insert_order(order_data):
                     "source_location": source_location,  # source_location extrait des tags
 
                     "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None,
-
+                    "order_type": order.get('_metafield_order_type'),
+                    
                     **get_store_context(),
                 }
                 
