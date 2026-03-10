@@ -1,6 +1,6 @@
+import os
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
-import re
+from typing import Dict, List, Optional
 
 def get_dates():
     """
@@ -45,6 +45,18 @@ def get_source_location(tags: List[str]) -> Optional[int]:
                 if location_id.isdigit():
                     return int(location_id)
     return None
+
+def get_store_context() -> Dict[str, str]:
+    """
+    Returns the multi-country context for DB inserts.
+    Values are driven by environment variables with sensible defaults.
+    """
+    return {
+        "data_source": os.getenv("DATA_SOURCE", "Shopify"),
+        "company_code": os.getenv("COMPANY_CODE", "ADAM_LIPPES"),
+        "commercial_organisation": os.getenv("COMMERCIAL_ORGANISATION", "US"),
+    }
+
 
 if __name__ == "__main__":
     print(get_dates())

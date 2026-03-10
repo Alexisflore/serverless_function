@@ -7,6 +7,7 @@ import datetime
 
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
+from .utils import get_store_context
 logger = get_logger('database')
 
 def get_supabase_client():
@@ -398,6 +399,13 @@ def send_data_to_supabase(processed_data):
                     values.append(value)
                     placeholders.append("%s")
                 
+                # Ajouter les colonnes multi-pays
+                for ctx_col, ctx_val in get_store_context().items():
+                    if ctx_col not in columns:
+                        columns.append(ctx_col)
+                        values.append(ctx_val)
+                        placeholders.append("%s")
+
                 # Vérification supplémentaire pour s'assurer que _id_order est présent
                 if '_id_order' not in columns:
                     logger.warning(f"Commande ignorée: la colonne _id_order n'est pas parmi les colonnes à insérer")

@@ -12,6 +12,7 @@ from typing import List, Dict, Any
 import requests
 import psycopg2
 from dotenv import load_dotenv
+from api.lib.utils import get_store_context
 
 load_dotenv()
 
@@ -283,13 +284,16 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         'gid': 255
     }
 
+    _ctx = get_store_context()
+
     upsert_q = """
     INSERT INTO customers (
         customer_id, gid, first_name, last_name, display_name, email, phone,
         number_of_orders, amount_spent, amount_spent_currency,
         created_at, shop_updated_at, tags, note, verified_email, valid_email_address,
-        addresses, synced_at
-    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        addresses, synced_at,
+        data_source, company_code, commercial_organisation
+    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     ON CONFLICT (customer_id)
     DO UPDATE SET
         gid = EXCLUDED.gid,
@@ -350,6 +354,7 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     r.get("valid_email_address"),
                     r.get("addresses", "[]"),
                     datetime.now(),
+                    _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                 )
 
                 # check exist (for stats)

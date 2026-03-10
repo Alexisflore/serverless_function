@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+from api.lib.utils import get_store_context
+
 def _shopify_headers() -> Dict[str, str]:
     """Retourne les headers pour les requêtes Shopify API"""
     load_dotenv()
@@ -506,14 +508,17 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
         print("🎯 Note: TOUS les variants seront insérés, même ceux sans COGS")
         
         # Requête d'insertion avec UPSERT
+        _ctx = get_store_context()
+
         insert_query = """
         INSERT INTO products (
             variant_id, product_id, inventory_item_id, cogs, status, vendor,
             barcode, sku, value_color, value_size, title, price, compare_at_price,
             weight, weight_unit, position, product_title,
-            product_handle, product_type, tags, created_at, updated_at, image_url
+            product_handle, product_type, tags, created_at, updated_at, image_url,
+            data_source, company_code, commercial_organisation
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) ON CONFLICT (variant_id) DO UPDATE SET
             product_id = EXCLUDED.product_id,
             inventory_item_id = EXCLUDED.inventory_item_id,
@@ -582,7 +587,8 @@ def insert_products_to_db(variants_data: List[Dict[str, Any]]) -> Dict[str, int]
                 variant.get('tags'),
                 created_at,
                 updated_at,
-                variant.get('image_url')  # Ajouter l'URL de l'image
+                variant.get('image_url'),
+                _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
             ))
         
         # Exécuter l'insertion par batch (optimisé pour PostgreSQL)
