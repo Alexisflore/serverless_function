@@ -284,7 +284,8 @@ FROM base
 ORDER BY recorded_at DESC;
 
 -- Vue inventory_snapshot_latest : ajout de commercial_organisation
-CREATE OR REPLACE VIEW inventory_snapshot_latest AS
+DROP VIEW IF EXISTS inventory_snapshot_latest;
+CREATE VIEW inventory_snapshot_latest AS
 SELECT DISTINCT ON (inventory_item_id, location_id, commercial_organisation)
     inventory_item_id,
     location_id,
@@ -308,7 +309,8 @@ FROM inventory_history
 ORDER BY inventory_item_id, location_id, commercial_organisation, recorded_at DESC;
 
 -- Vue inventory_stock_movements : ajout de commercial_organisation
-CREATE OR REPLACE VIEW inventory_stock_movements AS
+DROP VIEW IF EXISTS inventory_stock_movements;
+CREATE VIEW inventory_stock_movements AS
 SELECT
     ih.id,
     ih.inventory_item_id,

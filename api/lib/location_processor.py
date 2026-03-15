@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from api.lib.utils import get_store_context
+from api.lib.shopify_api import fetch_location_metafields_all
 
 def _shopify_headers() -> Dict[str, str]:
     """Retourne les headers pour les requêtes Shopify API"""
@@ -160,7 +161,7 @@ def parse_datetime(date_str: Optional[str]) -> Optional[datetime]:
         return None
 
 def ensure_locations_table():
-    """S'assure que la table locations existe"""
+    """S'assure que la table locations existe avec toutes les colonnes requises"""
     create_table_sql = """
     CREATE TABLE IF NOT EXISTS locations (
         _location_id BIGINT PRIMARY KEY,
@@ -178,14 +179,15 @@ def ensure_locations_table():
         localized_province_name VARCHAR(100),
         zip VARCHAR(20),
         phone VARCHAR(50),
+        email VARCHAR(255),
         legacy BOOLEAN,
         admin_graphql_api_id VARCHAR(100),
         created_at TIMESTAMP WITH TIME ZONE,
         updated_at TIMESTAMP WITH TIME ZONE,
-        synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        metafields JSONB
     );
     
-    -- Index pour les recherches fréquentes
     CREATE INDEX IF NOT EXISTS idx_locations_active ON locations(active);
     CREATE INDEX IF NOT EXISTS idx_locations_country ON locations(country_code);
     CREATE INDEX IF NOT EXISTS idx_locations_name ON locations(name);
@@ -224,10 +226,10 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
         _location_id, name, active, address1, address2, city, province, 
         province_code, country, country_code, country_name, 
         localized_country_name, localized_province_name, zip, phone, 
-        legacy, admin_graphql_api_id, created_at, updated_at, synced_at,
-        data_source, company_code, commercial_organisation
+        email, legacy, admin_graphql_api_id, created_at, updated_at, synced_at,
+        data_source, company_code, commercial_organisation, metafields
     ) VALUES (
-        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
     )
     ON CONFLICT (_location_id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -244,11 +246,13 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
         localized_province_name = EXCLUDED.localized_province_name,
         zip = EXCLUDED.zip,
         phone = EXCLUDED.phone,
+        email = EXCLUDED.email,
         legacy = EXCLUDED.legacy,
         admin_graphql_api_id = EXCLUDED.admin_graphql_api_id,
         created_at = EXCLUDED.created_at,
         updated_at = EXCLUDED.updated_at,
-        synced_at = CURRENT_TIMESTAMP
+        synced_at = CURRENT_TIMESTAMP,
+        metafields = EXCLUDED.metafields
     RETURNING (xmax = 0) AS inserted;
     """
     
@@ -262,7 +266,9 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
         
         for i, location in enumerate(locations, 1):
             try:
-                # Préparer les valeurs à insérer
+                metafields_raw = location.get('_metafields_json', {})
+                metafields_jsonb = json.dumps(metafields_raw) if metafields_raw else None
+
                 values = (
                     location.get('id'),                           # _location_id
                     location.get('name'),                         # name
@@ -279,12 +285,14 @@ def insert_locations_to_db(locations: List[Dict[str, Any]]) -> Dict[str, int]:
                     location.get('localized_province_name'),      # localized_province_name
                     location.get('zip'),                          # zip
                     location.get('phone'),                        # phone
+                    location.get('_metafield_email'),             # email (from custom.email metafield)
                     location.get('legacy'),                       # legacy
                     location.get('admin_graphql_api_id'),         # admin_graphql_api_id
                     parse_datetime(location.get('created_at')),   # created_at
                     parse_datetime(location.get('updated_at')),   # updated_at
                     current_time,                                 # synced_at
                     _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
+                    metafields_jsonb,                             # metafields (JSONB)
                 )
                 
                 cursor.execute(insert_sql, values)
@@ -348,6 +356,22 @@ def update_locations_incremental() -> Dict[str, Any]:
                 "message": "Aucune nouvelle location",
                 "stats": {"inserted": 0, "updated": 0, "errors": 0}
             }
+        
+        # Fetch metafields via GraphQL and enrich each location
+        print("🔖 Récupération des metafields des locations via GraphQL...")
+        try:
+            location_ids = [loc['id'] for loc in locations]
+            mf_map = fetch_location_metafields_all(location_ids)
+            for loc in locations:
+                lid = str(loc['id'])
+                loc['_metafield_email'] = mf_map.get(lid, {}).get('email')
+                loc['_metafields_json'] = mf_map.get(lid, {}).get('metafields', {})
+            print(f"✅ Metafields récupérés pour {len(mf_map)} locations")
+        except Exception as e:
+            print(f"⚠️ Erreur lors de la récupération des metafields: {e}")
+            for loc in locations:
+                loc['_metafield_email'] = None
+                loc['_metafields_json'] = {}
         
         # Synchroniser avec la base
         stats = insert_locations_to_db(locations)

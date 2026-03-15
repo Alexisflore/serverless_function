@@ -76,6 +76,62 @@ def fetch_order_metafields(order_ids, namespace="custom", key="order_type", batc
     return result
 
 
+def fetch_location_metafields_all(location_ids, batch_size=50):
+    """
+    Batch-fetch ALL metafields for a list of location IDs using GraphQL nodes query.
+
+    Returns:
+        dict mapping location_id (str) -> {"email": str|None, "metafields": {namespace.key: value}}
+    """
+    result = {}
+
+    for i in range(0, len(location_ids), batch_size):
+        batch = location_ids[i:i + batch_size]
+        gids = [f"gid://shopify/Location/{lid}" for lid in batch]
+
+        query = """
+        query GetLocationMetafields($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on Location {
+              id
+              metafields(first: 25) {
+                edges {
+                  node { namespace key value type }
+                }
+              }
+            }
+          }
+        }
+        """
+
+        try:
+            data = _graphql_request(query, {"ids": gids})
+            nodes = data.get("nodes") or []
+            for node in nodes:
+                if not node:
+                    continue
+                gid = node.get("id", "")
+                numeric_id = gid.split("/")[-1] if "/" in gid else gid
+                mf_dict = {}
+                email_val = None
+                for edge in (node.get("metafields", {}).get("edges") or []):
+                    mf = edge["node"]
+                    full_key = f"{mf['namespace']}.{mf['key']}"
+                    mf_dict[full_key] = mf["value"]
+                    if mf["namespace"] == "custom" and mf["key"] == "email":
+                        email_val = mf["value"]
+                result[str(numeric_id)] = {"email": email_val, "metafields": mf_dict}
+        except Exception as e:
+            logger.error(f"Error fetching location metafields for batch starting at index {i}: {e}")
+            for lid in batch:
+                result.setdefault(str(lid), {"email": None, "metafields": {}})
+
+        if i + batch_size < len(location_ids):
+            time.sleep(0.5)
+
+    return result
+
+
 def get_daily_orders(start_date, end_date):
     """
     Get the orders from start_date to end_date from Shopify
