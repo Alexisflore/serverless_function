@@ -1,14 +1,12 @@
-name: Process Daily Data - Hourly Sync
+name: Process Daily Data JP - Hourly Sync
 
 on:
   schedule:
-    # Exécute toutes les heures à la minute 0
     - cron: '0 * * * *'
-  # Permet également le déclenchement manuel depuis l'interface GitHub
   workflow_dispatch:
 
 jobs:
-  process-daily-data:
+  process-daily-data-jp:
     runs-on: ubuntu-latest
     
     steps:
@@ -31,18 +29,18 @@ jobs:
           echo "📦 Installation des dépendances depuis Pipfile..."
           pipenv install --deploy
 
-      - name: Process Daily Data (US)
+      - name: Process Daily Data (JP)
         env:
-          # Shopify API
-          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
-          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
+          # Shopify API - credentials du store Japon
+          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN_JP }}
+          SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN_JP }}
           SHOPIFY_API_VERSION: ${{ secrets.SHOPIFY_API_VERSION }}
           # Multi-country
-          COMMERCIAL_ORGANISATION: 'US'
-          # Supabase (pour database.py qui utilise supabase client)
+          COMMERCIAL_ORGANISATION: 'JP'
+          # Supabase (meme base de donnees que US)
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TOKEN }}
-          # Database - variables séparées (fallback de DATABASE_URL)
+          # Database
           SUPABASE_USER: ${{ secrets.SUPABASE_USER }}
           SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
           SUPABASE_HOST: ${{ secrets.SUPABASE_HOST }}
@@ -51,10 +49,10 @@ jobs:
           # Security
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "🚀 Démarrage du traitement des données..."
+          echo "🚀 Démarrage du traitement des données (JP)..."
           pipenv run python run_daily_sync.py
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "⚠️ Le cron job a échoué. Vérifiez les logs ci-dessus."
+          echo "⚠️ Le cron job JP a échoué. Vérifiez les logs ci-dessus."
