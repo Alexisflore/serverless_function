@@ -26,8 +26,10 @@ logger = get_logger("process_payout")
 
 load_dotenv()
 ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN")
-STORE_DOMAIN = "adam-lippes.myshopify.com"
+STORE_DOMAIN = os.getenv("SHOPIFY_STORE_DOMAIN")
 API_VERSION = "2024-10"
+
+from .utils import get_store_context
 
 
 def _shopify_headers() -> Dict[str, str]:
@@ -395,12 +397,14 @@ def recuperer_et_enregistrer_versements_jour(
                 # Puis supprimer le payout
                 cur.execute("DELETE FROM payout WHERE id = %s", (payout_id,))
             
+            _ctx = get_store_context()
             cur.execute(
                 """
                 INSERT INTO payout (
                     id, date, status, total, bank_reference,
-                    charges_total, refunds_total, fees_total, currency
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    charges_total, refunds_total, fees_total, currency,
+                    data_source, company_code, commercial_organisation
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     payout_id,
@@ -412,6 +416,7 @@ def recuperer_et_enregistrer_versements_jour(
                     refunds_total,
                     tot_fee,
                     payout.get("currency", "USD"),
+                    _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                 ),
             )
             stats["payouts_inserted"] += 1
@@ -430,8 +435,9 @@ def recuperer_et_enregistrer_versements_jour(
                         INSERT INTO payout_transaction (
                             id, payout_id, date, order_id, order_name,
                             type, amount, fee, net, currency,
-                            payment_method_name                      -- NEW
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            payment_method_name,
+                            data_source, company_code, commercial_organisation
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         """,
                         (
                             tx["id"],
@@ -444,7 +450,8 @@ def recuperer_et_enregistrer_versements_jour(
                             tx["fee"],
                             tx["net"],
                             tx["currency"],
-                            tx["payment_method_name"],             # NEW
+                            tx["payment_method_name"],
+                            _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                         ),
                     )
                     stats["transactions_inserted"] += 1

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import psycopg2
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
-from api.lib.utils import get_source_location
+from api.lib.utils import get_source_location, get_store_context
 
 load_dotenv()
 
@@ -64,7 +64,7 @@ def get_draft_orders_between_dates(start: datetime, end: datetime) -> List[Dict[
     Récupère tous les draft orders créés ou mis à jour entre les dates spécifiées
     """
     
-    store_domain = "adam-lippes.myshopify.com"
+    store_domain = os.getenv("SHOPIFY_STORE_DOMAIN")
     api_version = "2024-10"
     
     formatted_start = start.isoformat()
@@ -304,14 +304,17 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
     # SQL queries
     check_draft_exists_query = "SELECT COUNT(*) FROM draft_order WHERE _draft_id = %s"
     delete_draft_query = "DELETE FROM draft_order WHERE _draft_id = %s"
+    _ctx = get_store_context()
+
     insert_query = """
         INSERT INTO draft_order (
             _draft_id, created_at, completed_at, order_id, client_id,
             product_id, type, account_type, transaction_description,
             amount, status, transaction_currency, source_name, quantity, source_location,
             sku, variant_id, variant_title, name, draft_order_name, draft_order_note,
-            tags, tags_list
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            tags, tags_list,
+            data_source, company_code, commercial_organisation
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     
     try:
@@ -383,6 +386,7 @@ def process_draft_orders(draft_transactions: List[Dict[str, Any]]) -> Dict[str, 
                             transaction.get("draft_order_note"),
                             transaction.get("tags"),
                             tags_list_value,
+                            _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                         )
                         
                         cur.execute(insert_query, insert_params)

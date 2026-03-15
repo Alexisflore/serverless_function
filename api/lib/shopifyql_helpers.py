@@ -22,6 +22,7 @@ import psycopg2
 import psycopg2.extras
 import requests
 from dotenv import load_dotenv
+from api.lib.utils import get_store_context
 
 load_dotenv()
 
@@ -122,13 +123,182 @@ def _safe_int(v: Any) -> int:
 
 
 def _normalize_ts(raw: str) -> str:
+    """Normalize any timestamp to UTC 'YYYY-MM-DD HH:MM:SS'.
+    Naive datetimes (no timezone) are assumed UTC."""
     if not raw:
         return ""
     try:
         parsed = dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-        return parsed.strftime("%Y-%m-%d %H:%M:%S")
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        utc = parsed.astimezone(dt.timezone.utc)
+        return utc.strftime("%Y-%m-%d %H:%M:%S")
     except ValueError:
         return str(raw)
+
+
+# ---------------------------------------------------------------------------
+# REST API helpers (for supplementing missing fulfillment events)
+# ---------------------------------------------------------------------------
+
+def _shopify_rest(endpoint: str, max_retries: int = 3) -> Dict[str, Any]:
+    """GET from Shopify REST Admin API with retry on 429 and network errors."""
+    domain = os.getenv("SHOPIFY_STORE_DOMAIN", "").strip()
+    token = os.getenv("SHOPIFY_ACCESS_TOKEN", "").strip()
+    url = f"https://{domain}/admin/api/2026-01/{endpoint}"
+    headers = {"X-Shopify-Access-Token": token, "Content-Type": "application/json"}
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, headers=headers, timeout=30)
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout) as exc:
+            if attempt < max_retries - 1:
+                wait = 5 * (attempt + 1)
+                print(f"  [REST RETRY] {exc.__class__.__name__} on {endpoint}, "
+                      f"retry in {wait}s ({attempt+1}/{max_retries})",
+                      file=sys.stderr, flush=True)
+                time.sleep(wait)
+                continue
+            raise
+        if resp.status_code == 429:
+            retry_after = float(resp.headers.get("Retry-After", 2))
+            time.sleep(retry_after)
+            continue
+        resp.raise_for_status()
+        return resp.json()
+    raise RuntimeError(f"REST API max retries exceeded for {endpoint}")
+
+
+def _extract_document_ids(events: List[Dict]) -> Tuple[Set[int], Set[int]]:
+    """Extract numeric Order and DraftOrder IDs from reference_document_uri."""
+    order_ids: Set[int] = set()
+    draft_ids: Set[int] = set()
+    for ev in events:
+        uri = ev.get("reference_document_uri") or ""
+        try:
+            numeric = int(uri.rsplit("/", 1)[-1])
+        except (ValueError, IndexError):
+            continue
+        if "/DraftOrder/" in uri:
+            draft_ids.add(numeric)
+        elif "/Order/" in uri:
+            order_ids.add(numeric)
+    return order_ids, draft_ids
+
+
+def _resolve_draft_orders(
+    draft_ids: Set[int],
+    order_cache: Dict[int, Dict],
+) -> Set[int]:
+    """Fetch DraftOrders, resolve to their completed Order IDs."""
+    resolved: Set[int] = set()
+    for did in draft_ids:
+        cache_key = f"draft_{did}"
+        if cache_key not in order_cache:
+            try:
+                data = _shopify_rest(f"draft_orders/{did}.json")
+                order_cache[cache_key] = data.get("draft_order") or {}
+            except Exception as exc:
+                print(f"  [WARN] Cannot fetch draft_order {did}: {exc}", file=sys.stderr)
+                order_cache[cache_key] = None
+                continue
+
+        draft = order_cache[cache_key]
+        if not draft:
+            continue
+        completed_order_id = draft.get("order_id")
+        if completed_order_id:
+            resolved.add(int(completed_order_id))
+    return resolved
+
+
+def _fetch_synthetic_fulfillment_events(
+    adjustments: List[Dict],
+    variant_id: int | None,
+    location_id: int,
+    order_cache: Dict[int, Dict] | None = None,
+) -> List[Dict]:
+    """Find fulfillment events missing from ShopifyQL and return synthetic events.
+
+    For each Order (direct or resolved from DraftOrder) referenced in the
+    ShopifyQL events, checks fulfillments at `location_id` and creates
+    synthetic 'committed -qty' events for any missing fulfillment timestamp.
+    """
+    if order_cache is None:
+        order_cache = {}
+
+    order_ids, draft_ids = _extract_document_ids(adjustments)
+
+    if draft_ids:
+        resolved = _resolve_draft_orders(draft_ids, order_cache)
+        order_ids |= resolved
+
+    if not order_ids:
+        return []
+
+    existing_dts: List[dt.datetime] = []
+    for ev in adjustments:
+        raw = _normalize_ts(ev.get("second") or ev.get("day") or "")
+        if raw:
+            try:
+                existing_dts.append(dt.datetime.strptime(raw, "%Y-%m-%d %H:%M:%S"))
+            except ValueError:
+                pass
+
+    TOLERANCE = dt.timedelta(seconds=2)
+
+    def _ts_already_covered(ts_str: str) -> bool:
+        if not ts_str:
+            return False
+        try:
+            candidate = dt.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return False
+        return any(abs(candidate - ex) <= TOLERANCE for ex in existing_dts)
+
+    synthetic: List[Dict] = []
+    for oid in order_ids:
+        if oid not in order_cache:
+            try:
+                order_cache[oid] = _shopify_rest(f"orders/{oid}.json")["order"]
+            except Exception as exc:
+                print(f"  [WARN] Cannot fetch order {oid}: {exc}", file=sys.stderr)
+                order_cache[oid] = None
+                continue
+
+        order = order_cache[oid]
+        if order is None:
+            continue
+        for ful in order.get("fulfillments", []):
+            if ful.get("location_id") != location_id:
+                continue
+            if ful.get("status") != "success":
+                continue
+
+            ts_utc = _normalize_ts(ful.get("created_at", ""))
+            if _ts_already_covered(ts_utc):
+                continue
+
+            qty = 0
+            if variant_id:
+                for fli in ful.get("line_items", []):
+                    if fli.get("variant_id") == variant_id:
+                        qty += fli.get("quantity", 0)
+
+            if qty <= 0:
+                continue
+
+            ts_iso = ts_utc.replace(" ", "T") + "Z" if "T" not in ts_utc else ts_utc
+            synthetic.append({
+                "second": ts_iso,
+                "inventory_state": "committed",
+                "inventory_adjustment_change": -qty,
+                "inventory_change_reason": "fulfillment",
+                "reference_document_type": "Fulfillment",
+                "_synthetic": True,
+            })
+
+    return synthetic
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +359,7 @@ SHOW
   inventory_adjustment_count,
   inventory_change_reason,
   reference_document_type,
+  reference_document_uri,
   inventory_state,
   second
 GROUP BY
@@ -197,6 +368,7 @@ GROUP BY
   inventory_location_name,
   inventory_change_reason,
   reference_document_type,
+  reference_document_uri,
   inventory_state
 HAVING inventory_adjustment_change != 0
 SINCE {day.isoformat()}
@@ -281,13 +453,25 @@ def insert_adjustments_into_history(
         ts = r[0].strftime("%Y-%m-%d %H:%M:%S") if r[0] else ""
         existing_keys.add(ts)
 
-    # 3. Group adjustments by timestamp
+    # 3. Supplement with missing fulfillment events from REST
+    synthetic = _fetch_synthetic_fulfillment_events(
+        adjustments, variant_id, location_id,
+    )
+    if synthetic:
+        print(
+            f"  [SYNTHETIC] Added {len(synthetic)} missing fulfillment event(s) "
+            f"for item={inventory_item_id} loc={location_id}",
+            file=sys.stderr,
+        )
+        adjustments = adjustments + synthetic
+
+    # 4. Group adjustments by timestamp
     events_by_ts: Dict[str, List[Dict]] = defaultdict(list)
     for ev in adjustments:
         ts = ev.get("second") or ""
         events_by_ts[ts].append(ev)
 
-    # 4. Compute total delta from ALL ShopifyQL adjustments
+    # 5. Compute total delta from ALL adjustments (including synthetic)
     total_delta: Dict[str, int] = {s: 0 for s in STATE_FIELDS}
     for ev in adjustments:
         st = (ev.get("inventory_state") or "").strip().lower()
@@ -296,19 +480,35 @@ def insert_adjustments_into_history(
             total_delta[st] += ch
 
     # 5. Compute initial state: current stock - sum of all adjustments
-    #    This is always correct because `current` (from inventory table, just
-    #    UPSERTED in Phase A) reflects the state AFTER all events, and
-    #    `total_delta` is the sum of all ShopifyQL changes for the period.
     running = {s: current[s] - total_delta.get(s, 0) for s in STATE_FIELDS}
 
+    # Negative-shift fallback: if any state goes negative during the
+    # replay (due to missing fulfillment events from deleted orders),
+    # pre-compute the minimum value per state and shift initial upward.
+    sim = {s: running[s] for s in STATE_FIELDS}
+    mins = {s: sim[s] for s in STATE_FIELDS}
+    for ev in adjustments:
+        st = (ev.get("inventory_state") or "").strip().lower()
+        ch = _safe_int(ev.get("inventory_adjustment_change"))
+        if st in sim:
+            sim[st] += ch
+            if sim[st] < mins[st]:
+                mins[st] = sim[st]
+    for s in STATE_FIELDS:
+        if mins[s] < 0:
+            running[s] += -mins[s]
+
     # 6. Walk forward through events chronologically, inserting new ones
+    _ctx = get_store_context()
+
     insert_sql = """
     INSERT INTO inventory_history (
         inventory_item_id, location_id, variant_id, product_id, sku,
         available, committed, damaged, incoming,
         on_hand, quality_control, reserved, safety_stock,
         available_stock_movement,
-        recorded_at, change_type, change_comment
+        recorded_at, change_type, change_comment,
+        data_source, company_code, commercial_organisation
     ) VALUES %s
     """
 
@@ -346,6 +546,7 @@ def insert_adjustments_into_history(
             running["reserved"], running["safety_stock"],
             avail_movement, timestamp,
             "ADJUSTMENT", comment,
+            _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
         )
         batch.append(row)
         existing_keys.add(ts_normalized)
