@@ -163,11 +163,12 @@ def get_daily_orders(start_date, end_date):
         orders.extend(data.get('orders', []))
 
         # Handle pagination via response headers
-        lien = response.headers.get('Link')
-        if lien and 'rel="next"' in lien:
-            # print(lien.split(';')[0].strip('<>'))
-            url = lien.split(';')[0].strip('<>')
-            params = {}  # Parameters are already included in the next page URL
-        else:
-            url = None
+        lien = response.headers.get('Link', '')
+        url = None
+        if lien:
+            for part in lien.split(','):
+                if 'rel="next"' in part:
+                    url = part.split(';')[0].strip('<> ')
+                    params = {}
+                    break
     return orders

@@ -57,14 +57,15 @@ def get_daily_orders(start_date, end_date):
         print(f"✅ {len(page_orders)} commandes récupérées sur cette page")
 
         # Gestion de la pagination via les headers Link
-        link_header = response.headers.get('Link')
-        if link_header and 'rel="next"' in link_header:
-            # Extraire l'URL de la page suivante
-            url = link_header.split(';')[0].strip('<>')
-            params = {}  # Les paramètres sont déjà inclus dans l'URL
-            page_count += 1
-        else:
-            url = None
+        link_header = response.headers.get('Link', '')
+        url = None
+        if link_header:
+            for part in link_header.split(','):
+                if 'rel="next"' in part:
+                    url = part.split(';')[0].strip('<> ')
+                    params = {}
+                    page_count += 1
+                    break
     
     print(f"🎉 Total: {len(orders)} commandes récupérées")
     return orders
