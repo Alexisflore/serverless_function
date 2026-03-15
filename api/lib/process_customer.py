@@ -89,6 +89,14 @@ mutation {{
             verifiedEmail
             validEmailAddress
             addresses {{ address1 address2 city provinceCode zip country countryCode }}
+            emailMarketingConsent {{ marketingState consentUpdatedAt marketingOptInLevel }}
+            smsMarketingConsent {{ marketingState consentUpdatedAt marketingOptInLevel consentCollectedFrom }}
+            defaultAddress {{ address1 address2 city province provinceCode country countryCodeV2 zip phone firstName lastName company }}
+            metafields {{
+              edges {{
+                node {{ namespace key value type }}
+              }}
+            }}
           }}
         }}
       }}
@@ -143,12 +151,54 @@ def get_bulk_customers_data_filtered(updated_since: datetime) -> List[Dict[str, 
 # Traitement JSONL stream (URL fournie par Shopify)
 # ---------------------------------------------------------------------------
 
+def _build_customer_record(gid: str, node: dict, metafields_list: list) -> Dict[str, Any]:
+    """Build a customer record dict from a parsed JSONL node + its metafield children."""
+    if "node" in node:
+        node = node["node"]
+
+    amt = node.get("amountSpent") or {}
+    amount = amt.get("amount") if isinstance(amt, dict) else None
+    currency = amt.get("currencyCode") if isinstance(amt, dict) else None
+
+    mf_dict = {}
+    for mf in metafields_list:
+        ns = mf.get("namespace", "")
+        key = mf.get("key", "")
+        mf_dict[f"{ns}.{key}"] = mf.get("value")
+
+    return {
+        "customer_id": node.get("legacyResourceId"),
+        "gid": gid,
+        "first_name": node.get("firstName"),
+        "last_name": node.get("lastName"),
+        "display_name": node.get("displayName"),
+        "email": node.get("email"),
+        "phone": node.get("phone"),
+        "number_of_orders": node.get("numberOfOrders"),
+        "amount_spent": amount,
+        "amount_spent_currency": currency,
+        "created_at": node.get("createdAt"),
+        "shop_updated_at": node.get("updatedAt"),
+        "tags": node.get("tags"),
+        "note": node.get("note"),
+        "verified_email": node.get("verifiedEmail"),
+        "valid_email_address": node.get("validEmailAddress"),
+        "addresses": json.dumps(node.get("addresses") or [], ensure_ascii=False),
+        "email_marketing_consent": json.dumps(node.get("emailMarketingConsent") or {}, ensure_ascii=False),
+        "sms_marketing_consent": json.dumps(node.get("smsMarketingConsent") or {}, ensure_ascii=False),
+        "default_address": json.dumps(node.get("defaultAddress") or {}, ensure_ascii=False),
+        "metafields": json.dumps(mf_dict, ensure_ascii=False) if mf_dict else None,
+    }
+
+
 def process_customers_data_from_url(url: str) -> List[Dict[str, Any]]:
     """
     Stream the JSONL at `url`, parse objects and build customer records ready for DB insert.
+    Metafields arrive as separate JSONL lines with __parentId pointing to the customer GID.
     """
     customers: Dict[str, dict] = {}
-    # JSONL lines will contain nodes; we detect "Customer" by gid prefix
+    metafields_by_parent: Dict[str, list] = {}
+
     def _is_type(gid: str, typename: str) -> bool:
         return isinstance(gid, str) and gid.startswith(f"gid://shopify/{typename}/")
 
@@ -164,49 +214,16 @@ def process_customers_data_from_url(url: str) -> List[Dict[str, Any]]:
                 continue
             gid = obj.get("id", "")
             if _is_type(gid, "Customer"):
-                # Keep last seen node for this gid (should be unique)
                 customers[gid] = obj
+            elif "__parentId" in obj and "namespace" in obj and "key" in obj:
+                parent_id = obj["__parentId"]
+                metafields_by_parent.setdefault(parent_id, []).append(obj)
 
-    print(f"Construits {len(customers)} customers depuis le bulk")
+    print(f"Construits {len(customers)} customers depuis le bulk ({sum(len(v) for v in metafields_by_parent.values())} metafields)")
     records: List[Dict[str, Any]] = []
     for gid, node in customers.items():
-        # node may be the 'node' object or shaped differently depending on bulk query,
-        # safe-guard by using .get("node") if present
-        if "node" in node:
-            node = node["node"]
-
-        legacy_id = node.get("legacyResourceId")
-        # email and phone are now direct fields
-        default_email = node.get("email")
-        default_phone = node.get("phone")
-
-        amount = None
-        currency = None
-        amt = node.get("amountSpent") or {}
-        if isinstance(amt, dict):
-            amount = amt.get("amount")
-            currency = amt.get("currencyCode")
-
-        record = {
-            "customer_id": legacy_id,
-            "gid": gid,
-            "first_name": node.get("firstName"),
-            "last_name": node.get("lastName"),
-            "display_name": node.get("displayName"),
-            "email": default_email,
-            "phone": default_phone,
-            "number_of_orders": node.get("numberOfOrders"),
-            "amount_spent": amount,
-            "amount_spent_currency": currency,
-            "created_at": node.get("createdAt"),
-            "shop_updated_at": node.get("updatedAt"),
-            "tags": node.get("tags"),
-            "note": node.get("note"),
-            "verified_email": node.get("verifiedEmail"),
-            "valid_email_address": node.get("validEmailAddress"),
-            "addresses": json.dumps(node.get("addresses") or [], ensure_ascii=False),
-        }
-        records.append(record)
+        mf_list = metafields_by_parent.get(gid, [])
+        records.append(_build_customer_record(gid, node, mf_list))
 
     print(f"Généré {len(records)} enregistrements customers")
     return records
@@ -216,6 +233,8 @@ def process_customers_jsonl(jsonl_path: str) -> List[Dict[str, Any]]:
     Alternative: lire un fichier JSONL local (même logique que le streaming).
     """
     customers: Dict[str, dict] = {}
+    metafields_by_parent: Dict[str, list] = {}
+
     def _is_type(gid: str, typename: str) -> bool:
         return isinstance(gid, str) and gid.startswith(f"gid://shopify/{typename}/")
 
@@ -227,32 +246,14 @@ def process_customers_jsonl(jsonl_path: str) -> List[Dict[str, Any]]:
             gid = obj.get("id", "")
             if _is_type(gid, "Customer"):
                 customers[gid] = obj
+            elif "__parentId" in obj and "namespace" in obj and "key" in obj:
+                parent_id = obj["__parentId"]
+                metafields_by_parent.setdefault(parent_id, []).append(obj)
 
     records: List[Dict[str, Any]] = []
     for gid, node in customers.items():
-        if "node" in node:
-            node = node["node"]
-        # same mapping as above
-        amt = node.get("amountSpent") or {}
-        records.append({
-            "customer_id": node.get("legacyResourceId"),
-            "gid": gid,
-            "first_name": node.get("firstName"),
-            "last_name": node.get("lastName"),
-            "display_name": node.get("displayName"),
-            "email": node.get("email"),
-            "phone": node.get("phone"),
-            "number_of_orders": node.get("numberOfOrders"),
-            "amount_spent": amt.get("amount"),
-            "amount_spent_currency": amt.get("currencyCode"),
-            "created_at": node.get("createdAt"),
-            "shop_updated_at": node.get("updatedAt"),
-            "tags": node.get("tags"),
-            "note": node.get("note"),
-            "verified_email": node.get("verifiedEmail"),
-            "valid_email_address": node.get("validEmailAddress"),
-            "addresses": json.dumps(node.get("addresses") or [], ensure_ascii=False),
-        })
+        mf_list = metafields_by_parent.get(gid, [])
+        records.append(_build_customer_record(gid, node, mf_list))
     return records
 
 # ---------------------------------------------------------------------------
@@ -292,8 +293,9 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         number_of_orders, amount_spent, amount_spent_currency,
         created_at, shop_updated_at, tags, note, verified_email, valid_email_address,
         addresses, synced_at,
-        data_source, company_code, commercial_organisation
-    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        data_source, company_code, commercial_organisation,
+        email_marketing_consent, sms_marketing_consent, default_address, metafields
+    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     ON CONFLICT (customer_id)
     DO UPDATE SET
         gid = EXCLUDED.gid,
@@ -313,7 +315,11 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         valid_email_address = EXCLUDED.valid_email_address,
         addresses = EXCLUDED.addresses,
         updated_at = NOW(),
-        synced_at = EXCLUDED.synced_at
+        synced_at = EXCLUDED.synced_at,
+        email_marketing_consent = EXCLUDED.email_marketing_consent,
+        sms_marketing_consent = EXCLUDED.sms_marketing_consent,
+        default_address = EXCLUDED.default_address,
+        metafields = EXCLUDED.metafields
     """
 
     try:
@@ -355,6 +361,10 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     r.get("addresses", "[]"),
                     datetime.now(),
                     _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
+                    r.get("email_marketing_consent"),
+                    r.get("sms_marketing_consent"),
+                    r.get("default_address"),
+                    r.get("metafields"),
                 )
 
                 # check exist (for stats)
