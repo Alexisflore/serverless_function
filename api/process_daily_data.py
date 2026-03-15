@@ -48,11 +48,10 @@ def process_daily_data(start_date, end_date):
         print(f"📅 Traitement des orders pour la période {start_date} à {end_date}")
         orders = get_daily_orders(start_date, end_date)
         if not orders:
-            response_data["success"] = True
-            response_data["message"] = "Aucune commande à traiter pour cette période"
-            response_data["analyzed_period"] = f"From {start_date} to {end_date}"
-            return response_data
-        result = process_orders(orders)
+            print("ℹ️ Aucune commande pour cette période, poursuite des autres syncs...")
+            result = {"orders_inserted": 0, "orders_updated": 0, "orders_skipped": 0, "errors": [], "orders_id_to_skip": []}
+        else:
+            result = process_orders(orders)
 
         # 3. Process transactions for the specified date range
         print("💰 Traitement des transactions...")
