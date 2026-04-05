@@ -166,6 +166,16 @@ def _build_customer_record(gid: str, node: dict, metafields_list: list) -> Dict[
         key = mf.get("key", "")
         mf_dict[f"{ns}.{key}"] = mf.get("value")
 
+    da = node.get("defaultAddress") or {}
+
+    mf_reg_date = mf_dict.get("custom.clienteling_registration_date")
+    if mf_reg_date:
+        try:
+            from datetime import date as _date
+            mf_reg_date = _date.fromisoformat(mf_reg_date)
+        except (ValueError, TypeError):
+            mf_reg_date = None
+
     return {
         "customer_id": node.get("legacyResourceId"),
         "gid": gid,
@@ -186,8 +196,29 @@ def _build_customer_record(gid: str, node: dict, metafields_list: list) -> Dict[
         "addresses": json.dumps(node.get("addresses") or [], ensure_ascii=False),
         "email_marketing_consent": json.dumps(node.get("emailMarketingConsent") or {}, ensure_ascii=False),
         "sms_marketing_consent": json.dumps(node.get("smsMarketingConsent") or {}, ensure_ascii=False),
-        "default_address": json.dumps(node.get("defaultAddress") or {}, ensure_ascii=False),
+        "default_address": json.dumps(da, ensure_ascii=False),
         "metafields": json.dumps(mf_dict, ensure_ascii=False) if mf_dict else None,
+        # flat default_address columns
+        "default_address_first_name": da.get("firstName"),
+        "default_address_last_name": da.get("lastName"),
+        "default_address_company": da.get("company"),
+        "default_address_address1": da.get("address1"),
+        "default_address_address2": da.get("address2"),
+        "default_address_city": da.get("city"),
+        "default_address_province": da.get("province"),
+        "default_address_province_code": da.get("provinceCode"),
+        "default_address_country": da.get("country"),
+        "default_address_country_code": da.get("countryCodeV2"),
+        "default_address_zip": da.get("zip"),
+        "default_address_phone": da.get("phone"),
+        # flat metafield columns
+        "mf_title": mf_dict.get("custom.title"),
+        "mf_clienteling_tags": mf_dict.get("bspk.clienteling_tags"),
+        "mf_assigned_store": mf_dict.get("custom.assigned_store"),
+        "mf_sales_assistant": mf_dict.get("custom.sales_assistant"),
+        "mf_store_attachment": mf_dict.get("custom.store_attachment"),
+        "mf_contact_preferences": mf_dict.get("custom.contact_preferences"),
+        "mf_clienteling_registration_date": mf_reg_date,
     }
 
 
@@ -274,7 +305,6 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     conn = _pg_connect()
     cur = conn.cursor()
     
-    # Limites de caractères pour chaque champ
     field_limits = {
         'first_name': 100,
         'last_name': 100,
@@ -282,7 +312,23 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         'email': 255,
         'phone': 50,
         'amount_spent_currency': 10,
-        'gid': 255
+        'gid': 255,
+        'default_address_first_name': 100,
+        'default_address_last_name': 100,
+        'default_address_company': 255,
+        'default_address_address1': 255,
+        'default_address_address2': 255,
+        'default_address_city': 100,
+        'default_address_province': 100,
+        'default_address_province_code': 10,
+        'default_address_country': 100,
+        'default_address_country_code': 10,
+        'default_address_zip': 30,
+        'default_address_phone': 50,
+        'mf_title': 50,
+        'mf_assigned_store': 100,
+        'mf_sales_assistant': 200,
+        'mf_store_attachment': 100,
     }
 
     _ctx = get_store_context()
@@ -294,8 +340,19 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         created_at, shop_updated_at, tags, note, verified_email, valid_email_address,
         addresses, synced_at,
         data_source, company_code, commercial_organisation,
-        email_marketing_consent, sms_marketing_consent, default_address, metafields
-    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        email_marketing_consent, sms_marketing_consent, default_address, metafields,
+        default_address_first_name, default_address_last_name, default_address_company,
+        default_address_address1, default_address_address2, default_address_city,
+        default_address_province, default_address_province_code,
+        default_address_country, default_address_country_code,
+        default_address_zip, default_address_phone,
+        mf_title, mf_clienteling_tags, mf_assigned_store, mf_sales_assistant,
+        mf_store_attachment, mf_contact_preferences, mf_clienteling_registration_date
+    ) VALUES (
+        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+        %s,%s,%s,%s,%s,%s,%s
+    )
     ON CONFLICT (customer_id)
     DO UPDATE SET
         gid = EXCLUDED.gid,
@@ -319,7 +376,26 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         email_marketing_consent = EXCLUDED.email_marketing_consent,
         sms_marketing_consent = EXCLUDED.sms_marketing_consent,
         default_address = EXCLUDED.default_address,
-        metafields = EXCLUDED.metafields
+        metafields = EXCLUDED.metafields,
+        default_address_first_name = EXCLUDED.default_address_first_name,
+        default_address_last_name = EXCLUDED.default_address_last_name,
+        default_address_company = EXCLUDED.default_address_company,
+        default_address_address1 = EXCLUDED.default_address_address1,
+        default_address_address2 = EXCLUDED.default_address_address2,
+        default_address_city = EXCLUDED.default_address_city,
+        default_address_province = EXCLUDED.default_address_province,
+        default_address_province_code = EXCLUDED.default_address_province_code,
+        default_address_country = EXCLUDED.default_address_country,
+        default_address_country_code = EXCLUDED.default_address_country_code,
+        default_address_zip = EXCLUDED.default_address_zip,
+        default_address_phone = EXCLUDED.default_address_phone,
+        mf_title = EXCLUDED.mf_title,
+        mf_clienteling_tags = EXCLUDED.mf_clienteling_tags,
+        mf_assigned_store = EXCLUDED.mf_assigned_store,
+        mf_sales_assistant = EXCLUDED.mf_sales_assistant,
+        mf_store_attachment = EXCLUDED.mf_store_attachment,
+        mf_contact_preferences = EXCLUDED.mf_contact_preferences,
+        mf_clienteling_registration_date = EXCLUDED.mf_clienteling_registration_date
     """
 
     try:
@@ -365,6 +441,27 @@ def process_customer_records(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                     r.get("sms_marketing_consent"),
                     r.get("default_address"),
                     r.get("metafields"),
+                    # flat default_address columns
+                    truncated_data.get("default_address_first_name"),
+                    truncated_data.get("default_address_last_name"),
+                    truncated_data.get("default_address_company"),
+                    truncated_data.get("default_address_address1"),
+                    truncated_data.get("default_address_address2"),
+                    truncated_data.get("default_address_city"),
+                    truncated_data.get("default_address_province"),
+                    truncated_data.get("default_address_province_code"),
+                    truncated_data.get("default_address_country"),
+                    truncated_data.get("default_address_country_code"),
+                    truncated_data.get("default_address_zip"),
+                    truncated_data.get("default_address_phone"),
+                    # flat metafield columns
+                    truncated_data.get("mf_title"),
+                    r.get("mf_clienteling_tags"),
+                    truncated_data.get("mf_assigned_store"),
+                    truncated_data.get("mf_sales_assistant"),
+                    truncated_data.get("mf_store_attachment"),
+                    r.get("mf_contact_preferences"),
+                    r.get("mf_clienteling_registration_date"),
                 )
 
                 # check exist (for stats)
