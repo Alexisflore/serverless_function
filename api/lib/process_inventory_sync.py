@@ -667,11 +667,12 @@ def process_inventory_queue() -> Dict[str, Any]:
                         ))
                         was_inserted = cur.fetchone()[0]
 
+                        # FALSE = historique WEBHOOK écrit, enrichissement ShopifyQL (Phase B) encore à faire
                         cur.execute("""
                             UPDATE inventory_snapshot_queue
                             SET status = 'completed',
                                 processed_at = NOW(),
-                                history_synced = TRUE
+                                history_synced = FALSE
                             WHERE id = %s
                         """, (queue_id,))
                         conn.commit()
