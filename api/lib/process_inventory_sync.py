@@ -22,8 +22,9 @@ Solutions:
 import os
 import json
 import time
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from collections import defaultdict
+from datetime import datetime, timedelta, date, timezone
+from typing import List, Dict, Any, Optional, Set, Tuple
 import requests
 import psycopg2
 from dotenv import load_dotenv
@@ -431,26 +432,143 @@ def get_inventory_between_dates(start: datetime, end: datetime) -> List[Dict[str
 # 6. Traitement de la queue webhook (inventory_snapshot_queue)
 # ---------------------------------------------------------------------------
 
+def _utc_date_from_shopify_updated_at(shopify_updated_at: Any) -> Optional[date]:
+    """Calendar date in UTC for when Shopify reported the level update (for ShopifyQL day window)."""
+    if shopify_updated_at is None:
+        return None
+    try:
+        if isinstance(shopify_updated_at, datetime):
+            dtv = shopify_updated_at
+        else:
+            s = str(shopify_updated_at).strip()
+            if not s:
+                return None
+            dtv = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dtv.tzinfo is None:
+            dtv = dtv.replace(tzinfo=timezone.utc)
+        else:
+            dtv = dtv.astimezone(timezone.utc)
+        return dtv.date()
+    except (ValueError, TypeError, OSError):
+        return None
+
+
+def _dedupe_adjustment_events(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Same key as fetch_adjustments_for_pair when merging multi-day ShopifyQL pulls."""
+    seen: Set[Tuple[str, ...]] = set()
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        key = (
+            str(r.get("inventory_item_id", "")),
+            str(r.get("second", "")),
+            str(r.get("inventory_state", "")),
+            str(r.get("inventory_change_reason", "")),
+            str(r.get("reference_document_type", "")),
+            str(r.get("inventory_adjustment_change", "")),
+        )
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
+
+
+def _insert_history_from_queue(
+    cur, conn, inventory_item_id: int, location_id: int,
+    qty: Dict[str, Any], shopify_updated_at, ctx: Dict[str, str],
+) -> int:
+    """
+    Insert a WEBHOOK row into inventory_history directly from queue data.
+    Computes available_stock_movement by reading old values from inventory.
+    Returns 1 if inserted, 0 if skipped (dedup).
+    """
+    new_available = qty.get("available", 0)
+    new_committed = qty.get("committed", 0)
+    new_on_hand = qty.get("on_hand", 0)
+    new_incoming = qty.get("incoming", 0)
+    new_reserved = qty.get("reserved", 0)
+
+    cur.execute("""
+        SELECT available, committed, damaged, incoming,
+               quality_control, reserved, safety_stock,
+               variant_id, product_id, sku
+        FROM inventory
+        WHERE inventory_item_id = %s AND location_id = %s
+    """, (inventory_item_id, location_id))
+    inv_row = cur.fetchone()
+
+    if inv_row:
+        old_available = inv_row[0] or 0
+        damaged = inv_row[2] or 0
+        quality_control = inv_row[4] or 0
+        safety_stock = inv_row[6] or 0
+        variant_id = inv_row[7]
+        product_id = inv_row[8]
+        sku = inv_row[9]
+    else:
+        old_available = 0
+        damaged = 0
+        quality_control = 0
+        safety_stock = 0
+        variant_id = None
+        product_id = None
+        sku = None
+
+    avail_movement = new_available - old_available
+
+    if shopify_updated_at is None:
+        recorded_at_val = "NOW()"
+    else:
+        recorded_at_val = "%s"
+
+    cur.execute(f"""
+        INSERT INTO inventory_history (
+            inventory_item_id, location_id, variant_id, product_id, sku,
+            available, committed, damaged, incoming,
+            on_hand, quality_control, reserved, safety_stock,
+            available_stock_movement,
+            recorded_at, change_type,
+            data_source, company_code, commercial_organisation
+        )
+        SELECT %s, %s, %s, %s, %s,
+               %s, %s, %s, %s, %s, %s, %s, %s,
+               %s,
+               {recorded_at_val}, %s,
+               %s, %s, %s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM inventory_history
+            WHERE inventory_item_id = %s AND location_id = %s
+              AND recorded_at = {recorded_at_val}
+        )
+    """, (
+        inventory_item_id, location_id, variant_id, product_id, sku,
+        new_available, new_committed, damaged, new_incoming,
+        new_on_hand, quality_control, new_reserved, safety_stock,
+        avail_movement,
+        *([shopify_updated_at] if shopify_updated_at is not None else []),
+        "WEBHOOK",
+        ctx["data_source"], ctx["company_code"], ctx["commercial_organisation"],
+        inventory_item_id, location_id,
+        *([shopify_updated_at] if shopify_updated_at is not None else []),
+    ))
+    inserted = cur.rowcount
+    return inserted
+
+
 def process_inventory_queue() -> Dict[str, Any]:
     """
     Traite les lignes pending de inventory_snapshot_queue.
 
-    Phase A : UPSERT dans la table inventory (triggers desactives).
-    Phase B : Pour chaque couple unique (inventory_item_id, location_id)
-              traite avec succes, appeler ShopifyQL pour recuperer les
-              ajustements du jour et les inserer dans inventory_history
-              avec des valeurs absolues de stock.
+    Phase A : UPSERT inventory + INSERT direct dans inventory_history (garanti, 0 appel API).
+    Phase B : Enrichissement ShopifyQL (best-effort, run suivant) pour ajouter
+              change_comment + customer sur les rows WEBHOOK deja inserees.
 
     Returns:
-        Dict avec les stats: inserted, updated, failed, total_pending,
-        history_inserted, history_errors
+        Dict avec les stats
     """
     from api.lib.shopifyql_helpers import (
         fetch_all_locations,
         fetch_adjustments_for_pair,
-        insert_adjustments_into_history,
     )
-    import datetime as _dt
 
     stats = {
         "inserted": 0,
@@ -458,20 +576,22 @@ def process_inventory_queue() -> Dict[str, Any]:
         "failed": 0,
         "total_pending": 0,
         "history_inserted": 0,
+        "history_skipped": 0,
         "history_errors": [],
+        "enriched": 0,
+        "enrichment_errors": [],
         "errors": [],
     }
 
     conn = None
     cur = None
-    processed_pairs: set[tuple[str, str]] = set()
 
     try:
         conn = _pg_connect()
         cur = conn.cursor()
 
         # ---------------------------------------------------------------
-        # Phase A : UPSERT inventory
+        # Phase A : UPSERT inventory + INSERT direct inventory_history
         # ---------------------------------------------------------------
         cur.execute("""
             SELECT id, inventory_item_id, location_id, quantities, shopify_updated_at
@@ -485,132 +605,180 @@ def process_inventory_queue() -> Dict[str, Any]:
 
         if not pending_rows:
             print("Aucune ligne pending dans la queue.")
-            return stats
 
-        print(f"[Phase A] Traitement de {len(pending_rows)} lignes pending ...")
+        if pending_rows:
+            print(f"[Phase A] Traitement de {len(pending_rows)} lignes pending ...")
 
-        MAX_ATTEMPTS = 3
+            MAX_ATTEMPTS = 3
 
-        for row in pending_rows:
-            queue_id, inventory_item_id, location_id, quantities, shopify_updated_at = row
+            for row in pending_rows:
+                queue_id, inventory_item_id, location_id, quantities, shopify_updated_at = row
 
-            for attempt in range(1, MAX_ATTEMPTS + 1):
-                try:
-                    cur.execute("""
-                        UPDATE inventory_snapshot_queue
-                        SET status = 'processing',
-                            attempts = %s
-                        WHERE id = %s
-                    """, (attempt, queue_id))
-                    conn.commit()
+                for attempt in range(1, MAX_ATTEMPTS + 1):
+                    try:
+                        cur.execute("""
+                            UPDATE inventory_snapshot_queue
+                            SET status = 'processing',
+                                attempts = %s
+                            WHERE id = %s
+                        """, (attempt, queue_id))
+                        conn.commit()
 
-                    qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
-                    available = qty.get("available", 0)
-                    committed = qty.get("committed", 0)
-                    on_hand = qty.get("on_hand", 0)
-                    incoming = qty.get("incoming", 0)
-                    reserved = qty.get("reserved", 0)
+                        qty = quantities if isinstance(quantities, dict) else json.loads(quantities)
 
-                    _ctx = get_store_context()
-                    cur.execute("""
-                        INSERT INTO inventory (
+                        _ctx = get_store_context()
+
+                        hist_n = _insert_history_from_queue(
+                            cur, conn, inventory_item_id, location_id,
+                            qty, shopify_updated_at, _ctx,
+                        )
+                        if hist_n:
+                            stats["history_inserted"] += 1
+                            avail_mov = qty.get("available", 0)
+                            print(f"  [Phase A] item={inventory_item_id} loc={location_id}: history inserted (available={avail_mov})")
+                        else:
+                            stats["history_skipped"] += 1
+
+                        available = qty.get("available", 0)
+                        committed = qty.get("committed", 0)
+                        on_hand = qty.get("on_hand", 0)
+                        incoming = qty.get("incoming", 0)
+                        reserved = qty.get("reserved", 0)
+
+                        cur.execute("""
+                            INSERT INTO inventory (
+                                inventory_item_id, location_id,
+                                available, committed, on_hand, incoming, reserved,
+                                last_updated_at, synced_at,
+                                data_source, company_code, commercial_organisation
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
+                            ON CONFLICT (inventory_item_id, location_id)
+                            DO UPDATE SET
+                                available = EXCLUDED.available,
+                                committed = EXCLUDED.committed,
+                                on_hand = EXCLUDED.on_hand,
+                                incoming = EXCLUDED.incoming,
+                                reserved = EXCLUDED.reserved,
+                                last_updated_at = EXCLUDED.last_updated_at,
+                                synced_at = NOW()
+                            RETURNING (xmax = 0) AS inserted
+                        """, (
                             inventory_item_id, location_id,
                             available, committed, on_hand, incoming, reserved,
-                            last_updated_at, synced_at,
-                            data_source, company_code, commercial_organisation
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
-                        ON CONFLICT (inventory_item_id, location_id)
-                        DO UPDATE SET
-                            available = EXCLUDED.available,
-                            committed = EXCLUDED.committed,
-                            on_hand = EXCLUDED.on_hand,
-                            incoming = EXCLUDED.incoming,
-                            reserved = EXCLUDED.reserved,
-                            last_updated_at = EXCLUDED.last_updated_at,
-                            synced_at = NOW()
-                        RETURNING (xmax = 0) AS inserted
-                    """, (
-                        inventory_item_id, location_id,
-                        available, committed, on_hand, incoming, reserved,
-                        shopify_updated_at,
-                        _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
-                    ))
-                    was_inserted = cur.fetchone()[0]
+                            shopify_updated_at,
+                            _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
+                        ))
+                        was_inserted = cur.fetchone()[0]
+
+                        cur.execute("""
+                            UPDATE inventory_snapshot_queue
+                            SET status = 'completed',
+                                processed_at = NOW(),
+                                history_synced = TRUE
+                            WHERE id = %s
+                        """, (queue_id,))
+                        conn.commit()
+
+                        if was_inserted:
+                            stats["inserted"] += 1
+                        else:
+                            stats["updated"] += 1
+                        break
+
+                    except Exception as exc:
+                        if conn is not None:
+                            conn.rollback()
+                        error_msg = str(exc)[:500]
+
+                        if attempt < MAX_ATTEMPTS:
+                            print(f"Queue id={queue_id}: tentative {attempt}/{MAX_ATTEMPTS} echouee — {error_msg}")
+                            time.sleep(1)
+                            continue
+
+                        try:
+                            cur.execute("""
+                                UPDATE inventory_snapshot_queue
+                                SET status = 'failed',
+                                    attempts = %s,
+                                    last_error = %s
+                                WHERE id = %s
+                            """, (attempt, error_msg, queue_id))
+                            conn.commit()
+                        except Exception:
+                            if conn is not None:
+                                conn.rollback()
+
+                        stats["failed"] += 1
+                        stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
+                        print(f"Queue id={queue_id}: echec definitif apres {MAX_ATTEMPTS} tentatives — {error_msg}")
+
+            print(f"[Phase A] {stats['inserted']} inseres, {stats['updated']} mis a jour, {stats['failed']} echoues, "
+                  f"history: {stats['history_inserted']} inseres / {stats['history_skipped']} dedup")
+
+        # ---------------------------------------------------------------
+        # Phase B : Enrichissement ShopifyQL (best-effort, rows > 30 min)
+        # Ajoute change_comment + customer_id/email/name sur les WEBHOOK rows
+        # ---------------------------------------------------------------
+        cur.execute("""
+            SELECT DISTINCT ON (inventory_item_id, location_id)
+                   inventory_item_id, location_id, shopify_updated_at
+            FROM inventory_snapshot_queue
+            WHERE status = 'completed'
+              AND (history_synced = FALSE OR history_synced IS NULL)
+              AND processed_at < NOW() - INTERVAL '30 minutes'
+            ORDER BY inventory_item_id, location_id, created_at ASC
+            LIMIT 50
+        """)
+        enrichment_rows = cur.fetchall()
+
+        if enrichment_rows:
+            print(f"\n[Phase B] Enrichissement de {len(enrichment_rows)} couples (rows > 30 min, history_synced=FALSE) ...")
+            id_to_name = fetch_all_locations()
+            today = date.today()
+
+            for item_id, loc_id, s_updated_at in enrichment_rows:
+                try:
+                    loc_name = id_to_name.get(str(loc_id))
+                    if not loc_name:
+                        print(f"  [Phase B][WARN] location_id={loc_id} introuvable — skip")
+                        continue
+
+                    dates_to_query: set[date] = set()
+                    ud = _utc_date_from_shopify_updated_at(s_updated_at)
+                    if ud is not None:
+                        dates_to_query.add(ud)
+                    dates_to_query.add(today)
+
+                    adjustments: List[Dict[str, Any]] = []
+                    for d in sorted(dates_to_query):
+                        adjustments.extend(fetch_adjustments_for_pair(item_id, loc_name, d))
+                    adjustments = _dedupe_adjustment_events(adjustments)
+
+                    if not adjustments:
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: ShopifyQL returned 0 events for {sorted(dates_to_query)}")
+                    else:
+                        _enrich_webhook_rows(cur, conn, int(item_id), int(loc_id), adjustments)
+                        stats["enriched"] += 1
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: enriched with {len(adjustments)} event(s)")
 
                     cur.execute("""
                         UPDATE inventory_snapshot_queue
-                        SET status = 'completed',
-                            processed_at = NOW()
-                        WHERE id = %s
-                    """, (queue_id,))
+                        SET history_synced = TRUE
+                        WHERE status = 'completed'
+                          AND (history_synced = FALSE OR history_synced IS NULL)
+                          AND inventory_item_id = %s
+                          AND location_id = %s
+                    """, (item_id, loc_id))
                     conn.commit()
-
-                    if was_inserted:
-                        stats["inserted"] += 1
-                    else:
-                        stats["updated"] += 1
-
-                    processed_pairs.add((str(inventory_item_id), str(location_id)))
-                    break
 
                 except Exception as exc:
                     if conn is not None:
                         conn.rollback()
-                    error_msg = str(exc)[:500]
-
-                    if attempt < MAX_ATTEMPTS:
-                        print(f"Queue id={queue_id}: tentative {attempt}/{MAX_ATTEMPTS} echouee — {error_msg}")
-                        time.sleep(1)
-                        continue
-
-                    try:
-                        cur.execute("""
-                            UPDATE inventory_snapshot_queue
-                            SET status = 'failed',
-                                attempts = %s,
-                                last_error = %s
-                            WHERE id = %s
-                        """, (attempt, error_msg, queue_id))
-                        conn.commit()
-                    except Exception:
-                        if conn is not None:
-                            conn.rollback()
-
-                    stats["failed"] += 1
-                    stats["errors"].append(f"Queue id={queue_id}: {error_msg}")
-                    print(f"Queue id={queue_id}: echec definitif apres {MAX_ATTEMPTS} tentatives — {error_msg}")
-
-        print(f"[Phase A] {stats['inserted']} inseres, {stats['updated']} mis a jour, {stats['failed']} echoues")
-
-        # ---------------------------------------------------------------
-        # Phase B : ShopifyQL -> inventory_history
-        # ---------------------------------------------------------------
-        if processed_pairs:
-            print(f"\n[Phase B] {len(processed_pairs)} couples uniques a traiter via ShopifyQL ...")
-            id_to_name = fetch_all_locations()
-            today = _dt.date.today()
-
-            for item_id, loc_id in processed_pairs:
-                try:
-                    loc_name = id_to_name.get(str(loc_id))
-                    if not loc_name:
-                        print(f"  [WARN] location_id={loc_id} introuvable dans le mapping — skip")
-                        continue
-
-                    adjustments = fetch_adjustments_for_pair(item_id, loc_name, today)
-                    if not adjustments:
-                        continue
-
-                    n = insert_adjustments_into_history(conn, int(item_id), int(loc_id), adjustments)
-                    stats["history_inserted"] += n
-                    if n:
-                        print(f"  item={item_id} loc={loc_id}: {n} lignes inserees dans inventory_history")
-                except Exception as exc:
                     err = f"item={item_id} loc={loc_id}: {str(exc)[:300]}"
-                    stats["history_errors"].append(err)
-                    print(f"  [ERR] {err}")
+                    stats["enrichment_errors"].append(err)
+                    print(f"  [Phase B][ERR] {err}")
 
-            print(f"[Phase B] {stats['history_inserted']} lignes inserees dans inventory_history, {len(stats['history_errors'])} erreurs")
+            print(f"[Phase B] {stats['enriched']} couples enrichis, {len(stats['enrichment_errors'])} erreurs")
 
     except Exception as exc:
         print(f"Erreur critique lors du traitement de la queue: {str(exc)}")
@@ -625,6 +793,95 @@ def process_inventory_queue() -> Dict[str, Any]:
 
     print(f"Queue traitee: {stats['inserted']} inseres, {stats['updated']} mis a jour, {stats['failed']} echoues sur {stats['total_pending']} pending")
     return stats
+
+
+def _enrich_webhook_rows(
+    cur, conn, inventory_item_id: int, location_id: int,
+    adjustments: List[Dict[str, Any]],
+) -> None:
+    """
+    Update existing WEBHOOK rows in inventory_history with change_comment and
+    customer info from ShopifyQL adjustment events.
+    Matches on (inventory_item_id, location_id, recorded_at).
+    """
+    from api.lib.shopifyql_helpers import _normalize_ts, _safe_int
+
+    events_by_ts: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for ev in adjustments:
+        ts = ev.get("second") or ""
+        events_by_ts[str(ts)].append(ev)
+
+    for raw_ts, ts_events in events_by_ts.items():
+        norm = _normalize_ts(raw_ts)
+        if not norm:
+            continue
+
+        reason = ""
+        doc_type = ""
+        doc_uri = ""
+        for ev in ts_events:
+            if not reason:
+                reason = ev.get("inventory_change_reason") or ""
+            if not doc_type:
+                doc_type = ev.get("reference_document_type") or ""
+            if not doc_uri:
+                doc_uri = ev.get("reference_document_uri") or ""
+
+        parts = [p for p in [reason, doc_type] if p]
+        comment = " | ".join(parts) if parts else None
+
+        customer_id = None
+        customer_email = None
+        customer_name = None
+        if doc_uri and ("/Order/" in doc_uri or "/DraftOrder/" in doc_uri):
+            customer_id, customer_email, customer_name = _lookup_customer_from_doc(doc_uri)
+
+        cur.execute("""
+            UPDATE inventory_history
+            SET change_comment = COALESCE(%s, change_comment),
+                change_type = CASE WHEN change_type = 'WEBHOOK' THEN 'ADJUSTMENT' ELSE change_type END,
+                customer_id = COALESCE(%s, customer_id),
+                customer_email = COALESCE(%s, customer_email),
+                customer_name = COALESCE(%s, customer_name)
+            WHERE inventory_item_id = %s AND location_id = %s
+              AND recorded_at = %s
+              AND (change_comment IS NULL OR customer_id IS NULL)
+        """, (
+            comment, customer_id, customer_email, customer_name,
+            inventory_item_id, location_id, raw_ts,
+        ))
+    conn.commit()
+
+
+def _lookup_customer_from_doc(doc_uri: str):
+    """
+    Extract customer_id, email, name from an Order or DraftOrder GID via REST.
+    Returns (customer_id, email, name) or (None, None, None) on failure.
+    """
+    from api.lib.shopifyql_helpers import _shopify_rest
+
+    try:
+        numeric_id = int(doc_uri.rsplit("/", 1)[-1])
+    except (ValueError, IndexError):
+        return None, None, None
+
+    try:
+        if "/DraftOrder/" in doc_uri:
+            data = _shopify_rest(f"draft_orders/{numeric_id}.json")
+            order = data.get("draft_order") or {}
+        else:
+            data = _shopify_rest(f"orders/{numeric_id}.json")
+            order = data.get("order") or {}
+
+        customer = order.get("customer") or {}
+        cid = customer.get("id")
+        email = customer.get("email")
+        first = customer.get("first_name") or ""
+        last = customer.get("last_name") or ""
+        name = f"{first} {last}".strip() or None
+        return cid, email, name
+    except Exception:
+        return None, None, None
 
 # ---------------------------------------------------------------------------
 # 7. Persistance en base de données (sync Shopify API)
