@@ -565,10 +565,7 @@ def process_inventory_queue() -> Dict[str, Any]:
     Returns:
         Dict avec les stats
     """
-    from api.lib.shopifyql_helpers import (
-        fetch_all_locations,
-        fetch_adjustments_for_pair,
-    )
+    from api.lib.shopifyql_helpers import fetch_all_locations, fetch_adjustments_for_pair  # noqa: E402
 
     stats = {
         "inserted": 0,
