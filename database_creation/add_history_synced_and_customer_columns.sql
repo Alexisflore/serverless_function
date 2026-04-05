@@ -2,8 +2,8 @@
 -- MIGRATION : history_synced on queue + customer columns on inventory_history
 -- ============================================
 
--- 1. Queue tracking : Phase A marque history_synced = TRUE apres insert direct
---    Phase B enrichit les rows restantes (history_synced = FALSE, processed > 30 min)
+-- 1. Queue tracking : Phase A met history_synced = FALSE apres insert WEBHOOK (enrichissement pending).
+--    Phase B met history_synced = TRUE apres ShopifyQL (rows completed, processed > 30 min).
 ALTER TABLE inventory_snapshot_queue
   ADD COLUMN IF NOT EXISTS history_synced BOOLEAN DEFAULT FALSE;
 
