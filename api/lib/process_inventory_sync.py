@@ -753,26 +753,42 @@ def process_inventory_queue() -> Dict[str, Any]:
                         dates_to_query.add(ud)
                     dates_to_query.add(today)
 
+                    total_events_found = 0
+                    total_rows_enriched = 0
+
                     for d in sorted(dates_to_query):
-                        time.sleep(30)
                         adjustments = fetch_adjustments_for_pair(item_id, loc_name, d)
                         adjustments = _dedupe_adjustment_events(adjustments)
 
                         if adjustments:
+                            total_events_found += len(adjustments)
                             n_updated = _enrich_webhook_rows(cur, conn, int(item_id), int(loc_id), adjustments)
+                            total_rows_enriched += n_updated
                             stats["enriched"] += 1
                             print(f"  [Phase B] item={item_id} loc={loc_id} day={d}: {len(adjustments)} event(s), {n_updated} row(s) updated")
                         else:
                             print(f"  [Phase B] item={item_id} loc={loc_id} day={d}: 0 events")
 
-                    cur.execute("""
-                        UPDATE inventory_snapshot_queue
-                        SET history_synced = TRUE
-                        WHERE status = 'completed'
-                          AND (history_synced = FALSE OR history_synced IS NULL)
-                          AND inventory_item_id = %s AND location_id = %s
-                    """, (item_id, loc_id))
-                    conn.commit()
+                    should_mark_synced = (
+                        total_events_found == 0
+                        or total_rows_enriched > 0
+                    )
+
+                    if should_mark_synced:
+                        cur.execute("""
+                            UPDATE inventory_snapshot_queue
+                            SET history_synced = TRUE
+                            WHERE status = 'completed'
+                              AND (history_synced = FALSE OR history_synced IS NULL)
+                              AND inventory_item_id = %s AND location_id = %s
+                        """, (item_id, loc_id))
+                        conn.commit()
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: history_synced=TRUE "
+                              f"(events={total_events_found}, enriched={total_rows_enriched})")
+                    else:
+                        conn.commit()
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: keeping history_synced=FALSE "
+                              f"(events={total_events_found} found but 0 rows enriched — will retry)")
 
                 except Exception as exc:
                     if conn is not None:
