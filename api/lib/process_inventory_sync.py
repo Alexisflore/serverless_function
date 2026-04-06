@@ -719,7 +719,7 @@ def process_inventory_queue() -> Dict[str, Any]:
         # ---------------------------------------------------------------
         cur.execute("""
             SELECT DISTINCT ON (inventory_item_id, location_id)
-                   inventory_item_id, location_id, shopify_updated_at
+                   inventory_item_id, location_id, location_name, shopify_updated_at
             FROM inventory_snapshot_queue
             WHERE status = 'completed'
               AND (history_synced = FALSE OR history_synced IS NULL)
@@ -731,14 +731,20 @@ def process_inventory_queue() -> Dict[str, Any]:
 
         if enrichment_rows:
             print(f"\n[Phase B] Enrichissement de {len(enrichment_rows)} couples (rows > 30 min, history_synced=FALSE) ...")
-            id_to_name = fetch_all_locations()
             today = date.today()
 
-            for item_id, loc_id, s_updated_at in enrichment_rows:
+            for item_id, loc_id, loc_name, s_updated_at in enrichment_rows:
                 try:
-                    loc_name = id_to_name.get(str(loc_id))
                     if not loc_name:
-                        print(f"  [Phase B][WARN] location_id={loc_id} introuvable — skip")
+                        print(f"  [Phase B][WARN] location_id={loc_id} pas de location_name en queue — skip")
+                        cur.execute("""
+                            UPDATE inventory_snapshot_queue
+                            SET history_synced = TRUE
+                            WHERE status = 'completed'
+                              AND (history_synced = FALSE OR history_synced IS NULL)
+                              AND inventory_item_id = %s AND location_id = %s
+                        """, (item_id, loc_id))
+                        conn.commit()
                         continue
 
                     dates_to_query: set[date] = set()
@@ -747,25 +753,24 @@ def process_inventory_queue() -> Dict[str, Any]:
                         dates_to_query.add(ud)
                     dates_to_query.add(today)
 
-                    adjustments: List[Dict[str, Any]] = []
                     for d in sorted(dates_to_query):
-                        adjustments.extend(fetch_adjustments_for_pair(item_id, loc_name, d))
-                    adjustments = _dedupe_adjustment_events(adjustments)
+                        time.sleep(30)
+                        adjustments = fetch_adjustments_for_pair(item_id, loc_name, d)
+                        adjustments = _dedupe_adjustment_events(adjustments)
 
-                    if not adjustments:
-                        print(f"  [Phase B] item={item_id} loc={loc_id}: ShopifyQL returned 0 events for {sorted(dates_to_query)}")
-                    else:
-                        _enrich_webhook_rows(cur, conn, int(item_id), int(loc_id), adjustments)
-                        stats["enriched"] += 1
-                        print(f"  [Phase B] item={item_id} loc={loc_id}: enriched with {len(adjustments)} event(s)")
+                        if adjustments:
+                            n_updated = _enrich_webhook_rows(cur, conn, int(item_id), int(loc_id), adjustments)
+                            stats["enriched"] += 1
+                            print(f"  [Phase B] item={item_id} loc={loc_id} day={d}: {len(adjustments)} event(s), {n_updated} row(s) updated")
+                        else:
+                            print(f"  [Phase B] item={item_id} loc={loc_id} day={d}: 0 events")
 
                     cur.execute("""
                         UPDATE inventory_snapshot_queue
                         SET history_synced = TRUE
                         WHERE status = 'completed'
                           AND (history_synced = FALSE OR history_synced IS NULL)
-                          AND inventory_item_id = %s
-                          AND location_id = %s
+                          AND inventory_item_id = %s AND location_id = %s
                     """, (item_id, loc_id))
                     conn.commit()
 
@@ -793,31 +798,104 @@ def process_inventory_queue() -> Dict[str, Any]:
     return stats
 
 
+def _sum_available_change(events: List[Dict[str, Any]]) -> Optional[int]:
+    """Sum inventory_adjustment_change for state='available' across grouped events."""
+    from api.lib.shopifyql_helpers import _safe_int
+    total = 0
+    found = False
+    for ev in events:
+        state = (ev.get("inventory_state") or "").lower()
+        if state == "available":
+            total += _safe_int(ev.get("inventory_adjustment_change"))
+            found = True
+    return total if found else None
+
+
 def _enrich_webhook_rows(
     cur, conn, inventory_item_id: int, location_id: int,
     adjustments: List[Dict[str, Any]],
-) -> None:
+) -> int:
     """
     Update existing WEBHOOK rows in inventory_history with change_comment and
     customer info from ShopifyQL adjustment events.
-    Matches on (inventory_item_id, location_id, recorded_at).
+
+    Matching strategy (handles multiple events within the same minute):
+    1. Read un-enriched WEBHOOK rows (id, recorded_at, available_stock_movement)
+    2. Build ShopifyQL event groups by `second` timestamp
+    3. For each WEBHOOK row, pick the closest ShopifyQL group (≤60s) where
+       the available delta also matches — falls back to closest-only if no
+       delta match exists.
+    4. UPDATE by exact `id` — no timestamp window in SQL.
+    Returns number of rows updated.
     """
-    from api.lib.shopifyql_helpers import _normalize_ts, _safe_int
+    cur.execute("""
+        SELECT id, recorded_at, available_stock_movement
+        FROM inventory_history
+        WHERE inventory_item_id = %s AND location_id = %s
+          AND change_type = 'WEBHOOK'
+          AND change_comment IS NULL
+        ORDER BY recorded_at
+    """, (inventory_item_id, location_id))
+    webhook_rows = cur.fetchall()
+    if not webhook_rows:
+        return 0
 
     events_by_ts: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for ev in adjustments:
         ts = ev.get("second") or ""
         events_by_ts[str(ts)].append(ev)
 
-    for raw_ts, ts_events in events_by_ts.items():
-        norm = _normalize_ts(raw_ts)
-        if not norm:
+    shopify_slots: List[tuple] = []  # (datetime_utc, avail_delta|None, events)
+    for raw_ts, evts in events_by_ts.items():
+        try:
+            parsed = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.astimezone(timezone.utc)
+        except (ValueError, TypeError):
             continue
+        shopify_slots.append((parsed, _sum_available_change(evts), evts))
+    shopify_slots.sort(key=lambda x: x[0])
+
+    if not shopify_slots:
+        return 0
+
+    updated_total = 0
+    used_indices: set = set()
+
+    for hist_id, recorded_at, avail_movement in webhook_rows:
+        if recorded_at.tzinfo is None:
+            recorded_at = recorded_at.replace(tzinfo=timezone.utc)
+
+        best_idx = None
+        best_score = None  # (delta_match:bool inverted, time_delta)
+
+        for i, (sq_ts, sq_avail_delta, _) in enumerate(shopify_slots):
+            if i in used_indices:
+                continue
+            time_delta = abs((recorded_at - sq_ts).total_seconds())
+            if time_delta > 60:
+                continue
+            delta_matches = (
+                sq_avail_delta is not None
+                and avail_movement is not None
+                and sq_avail_delta == avail_movement
+            )
+            score = (not delta_matches, time_delta)
+            if best_score is None or score < best_score:
+                best_score = score
+                best_idx = i
+
+        if best_idx is None:
+            continue
+
+        used_indices.add(best_idx)
+        _, _, matched_events = shopify_slots[best_idx]
 
         reason = ""
         doc_type = ""
         doc_uri = ""
-        for ev in ts_events:
+        for ev in matched_events:
             if not reason:
                 reason = ev.get("inventory_change_reason") or ""
             if not doc_type:
@@ -837,18 +915,16 @@ def _enrich_webhook_rows(
         cur.execute("""
             UPDATE inventory_history
             SET change_comment = COALESCE(%s, change_comment),
-                change_type = CASE WHEN change_type = 'WEBHOOK' THEN 'ADJUSTMENT' ELSE change_type END,
+                change_type = 'ADJUSTMENT',
                 customer_id = COALESCE(%s, customer_id),
                 customer_email = COALESCE(%s, customer_email),
                 customer_name = COALESCE(%s, customer_name)
-            WHERE inventory_item_id = %s AND location_id = %s
-              AND recorded_at = %s
-              AND (change_comment IS NULL OR customer_id IS NULL)
-        """, (
-            comment, customer_id, customer_email, customer_name,
-            inventory_item_id, location_id, raw_ts,
-        ))
+            WHERE id = %s
+        """, (comment, customer_id, customer_email, customer_name, hist_id))
+        updated_total += cur.rowcount
+
     conn.commit()
+    return updated_total
 
 
 def _lookup_customer_from_doc(doc_uri: str):

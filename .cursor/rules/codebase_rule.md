@@ -149,6 +149,33 @@ def _pg_connect():
 - **ShopifyQL history** (`shopifyql_helpers.py`): queries `inventory_adjustment_history` to compute absolute stock values from deltas, populates `inventory_history`
 - Quantity names tracked: `available`, `committed`, `damaged`, `incoming`, `on_hand`, `quality_control`, `reserved`, `safety_stock`
 
+#### Two-Phase Inventory Queue Processing
+
+**Phase A** (guaranteed, zero API calls):
+- Reads `pending` rows from `inventory_snapshot_queue`
+- For each row: reads old `available` from `inventory` table → computes `available_stock_movement = new - old` → inserts a `WEBHOOK` row into `inventory_history` (dedup via `WHERE NOT EXISTS`)
+- Then UPSERTs into `inventory` table
+- Marks queue row as `completed` with `history_synced = FALSE`
+
+**Phase B** (best-effort enrichment, decoupled):
+- Selects `completed` queue rows where `history_synced = FALSE` and `processed_at > 30 minutes` (gives ShopifyQL indexing lag time)
+- Uses `location_name` stored in the queue row (no `fetch_all_locations()` call needed)
+- For each couple `(item_id, location_id)`: calls ShopifyQL `inventory_adjustment_history` per day, then enriches matching `WEBHOOK` rows with `change_comment`, `change_type → ADJUSTMENT`, and `customer_id/email/name` (via REST order lookup when a `reference_document_uri` exists)
+- **Timestamp matching**: `shopify_updated_at` (webhook) differs from ShopifyQL `second` by ~2s (inherent to Shopify). Matching uses a ±60s window + `available_stock_movement` delta comparison for disambiguation when multiple events happen within the same minute
+- Marks queue rows as `history_synced = TRUE` after processing (even if ShopifyQL returns 0 events)
+- Adds a `time.sleep(30)` between ShopifyQL calls to respect Shopify GraphQL rate limits
+
+#### Shopify GraphQL Rate Limits (ShopifyQL)
+- Shopify GraphQL Admin API uses a **leaky bucket** with `maximumAvailable = 1000` points
+- ShopifyQL queries (`shopifyqlQuery`) cost **~525 points** each
+- Bucket max allows ~1.9 calls before throttle; `restoreRate` is not returned in THROTTLED errors
+- `_graphql()` in `shopifyql_helpers.py` retries up to 5 times with dynamic wait based on the point deficit (fallback: 30s + 15s × attempt when `restoreRate` is unknown)
+- Between ShopifyQL calls in Phase B, a 30s sleep prevents immediate throttling
+
+#### Queue Columns
+- `history_synced BOOLEAN DEFAULT FALSE` on `inventory_snapshot_queue`: tracks whether Phase B has processed the row
+- `customer_id BIGINT`, `customer_email VARCHAR(255)`, `customer_name VARCHAR(255)` on `inventory_history`: populated by Phase B when an order/draft order is associated with the adjustment
+
 ### Payout Processing (`process_payout.py`)
 - Fetches Shopify Payments payouts for a given day
 - Enriches each transaction with `payment_method_name`

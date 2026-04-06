@@ -57,11 +57,16 @@ STATE_FIELDS = [
 # Low-level helpers
 # ---------------------------------------------------------------------------
 
+_gql_restore_rate: float | None = None
+
+
 def _graphql(
     query: str,
     variables: Dict[str, Any],
     max_retries: int = 5,
 ) -> Dict[str, Any]:
+    global _gql_restore_rate
+
     shop = os.getenv("SHOPIFY_STORE_DOMAIN", "").strip()
     token = os.getenv("SHOPIFY_ACCESS_TOKEN", "").strip()
     api_version = "2026-01"
@@ -76,6 +81,16 @@ def _graphql(
         resp.raise_for_status()
         body = resp.json()
 
+        cost = _extract_cost(body)
+
+        if cost:
+            if cost.get("restoreRate"):
+                _gql_restore_rate = float(cost["restoreRate"])
+            print(f"  [GQL] requested={cost.get('requestedQueryCost')} "
+                  f"available={cost.get('currentlyAvailable')}/{cost.get('maximumAvailable')} "
+                  f"restore={cost.get('restoreRate', _gql_restore_rate or '?')}/s",
+                  file=sys.stderr, flush=True)
+
         errors = body.get("errors") or []
         if not errors:
             return body["data"]
@@ -84,14 +99,48 @@ def _graphql(
             e.get("extensions", {}).get("code") == "THROTTLED" for e in errors
         )
         if throttled and attempt < max_retries - 1:
-            wait = 60
-            print(f"  [THROTTLED] waiting {wait}s (retry {attempt+1}/{max_retries}) ...", file=sys.stderr, flush=True)
+            wait = _calc_throttle_wait(cost, attempt)
+            print(f"  [THROTTLED] waiting {wait}s (retry {attempt+1}/{max_retries})",
+                  file=sys.stderr, flush=True)
             time.sleep(wait)
             continue
 
         raise RuntimeError(f"GraphQL errors: {json.dumps(errors, ensure_ascii=False)}")
 
     raise RuntimeError("Max retries exceeded")
+
+
+def _extract_cost(body: Dict[str, Any]) -> Dict[str, Any] | None:
+    for e in body.get("errors") or []:
+        ext = e.get("extensions") or {}
+        if "cost" in ext:
+            return ext["cost"]
+    ext_root = body.get("extensions") or {}
+    return ext_root.get("cost")
+
+
+def _calc_throttle_wait(cost: Dict[str, Any] | None, attempt: int) -> int:
+    """Compute optimal wait time from Shopify cost data.
+
+    Uses restoreRate from the response, or a cached value from a previous
+    successful call, or falls back to a conservative estimate.
+    """
+    available = (cost.get("currentlyAvailable") or 0) if cost else 0
+    needed = (cost.get("requestedQueryCost") or 525) if cost else 525
+    deficit = max(needed - available, 0)
+
+    restore = None
+    if cost and cost.get("restoreRate"):
+        restore = float(cost["restoreRate"])
+    elif _gql_restore_rate:
+        restore = _gql_restore_rate
+
+    if restore and restore > 0:
+        wait = int(deficit / restore) + 3
+    else:
+        wait = int(deficit / 50) + 5  # assume 50 pts/s as conservative default
+
+    return max(wait, 5)
 
 
 def call_shopifyql(q: str) -> Dict[str, Any]:
