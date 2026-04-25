@@ -37,13 +37,20 @@ def _shopify_headers() -> Dict[str, str]:
 def _pg_connect():
     """Connexion PostgreSQL.
 
-    Ordre de résolution :
-      1. SUPABASE_URL  (connection string Postgres directe ; recommandé)
-      2. DATABASE_URL  (fallback historique)
-      3. SUPABASE_USER / PASSWORD / HOST / PORT / DB_NAME (variables séparées)
+    Ordre de résolution (aligné avec le reste du codebase) :
+      1. DATABASE_URL                                       (chaine complète)
+      2. SUPABASE_USER / PASSWORD / HOST / PORT / DB_NAME   (variables séparées,
+         qui pointent sur le pooler Supavisor compatible IPv4)
+
+    NOTE : on n'utilise PAS `SUPABASE_URL` ici. Cette variable est réservée à
+    l'URL HTTP du projet (ex. `https://<ref>.supabase.co`) consommée par
+    `get_supabase_client()`. Sur le tier gratuit Supabase, l'endpoint direct
+    `db.<ref>.supabase.co` ne résout qu'en IPv6 et échoue depuis Vercel /
+    GitHub Actions / la plupart des réseaux locaux ("Network is unreachable").
+    Le pooler `aws-0-<region>.pooler.supabase.com:6543` est IPv4-friendly.
     """
     load_dotenv()
-    db_url = os.getenv("SUPABASE_URL") or os.getenv("DATABASE_URL")
+    db_url = os.getenv("DATABASE_URL")
     if not db_url:
         db_url = "postgresql://{user}:{pw}@{host}:{port}/{db}".format(
             user=os.getenv("SUPABASE_USER"),
