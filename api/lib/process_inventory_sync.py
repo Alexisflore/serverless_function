@@ -719,7 +719,8 @@ def process_inventory_queue() -> Dict[str, Any]:
         # ---------------------------------------------------------------
         cur.execute("""
             SELECT DISTINCT ON (inventory_item_id, location_id)
-                   inventory_item_id, location_id, location_name, shopify_updated_at
+                   inventory_item_id, location_id, location_name, shopify_updated_at,
+                   processed_at
             FROM inventory_snapshot_queue
             WHERE status = 'completed'
               AND (history_synced = FALSE OR history_synced IS NULL)
@@ -733,7 +734,7 @@ def process_inventory_queue() -> Dict[str, Any]:
             print(f"\n[Phase B] Enrichissement de {len(enrichment_rows)} couples (rows > 30 min, history_synced=FALSE) ...")
             today = date.today()
 
-            for item_id, loc_id, loc_name, s_updated_at in enrichment_rows:
+            for item_id, loc_id, loc_name, s_updated_at, processed_at in enrichment_rows:
                 try:
                     if not loc_name:
                         print(f"  [Phase B][WARN] location_id={loc_id} pas de location_name en queue — skip")
@@ -746,6 +747,12 @@ def process_inventory_queue() -> Dict[str, Any]:
                         """, (item_id, loc_id))
                         conn.commit()
                         continue
+
+                    row_age_hours = 0.0
+                    if processed_at:
+                        if processed_at.tzinfo is None:
+                            processed_at = processed_at.replace(tzinfo=timezone.utc)
+                        row_age_hours = (datetime.now(timezone.utc) - processed_at).total_seconds() / 3600
 
                     dates_to_query: set[date] = set()
                     ud = _utc_date_from_shopify_updated_at(s_updated_at)
@@ -769,10 +776,27 @@ def process_inventory_queue() -> Dict[str, Any]:
                         else:
                             print(f"  [Phase B] item={item_id} loc={loc_id} day={d}: 0 events")
 
-                    should_mark_synced = (
-                        total_events_found == 0
-                        or total_rows_enriched > 0
-                    )
+                    # Decision logic:
+                    #  - enriched > 0 : success → TRUE
+                    #  - 0 events + row > 6h old : ShopifyQL will never have it (set/transfer) → TRUE
+                    #  - 0 events + row < 6h old : might be ShopifyQL lag → keep FALSE, retry later
+                    #  - events found but 0 enriched + row > 24h : give up after 24h → TRUE
+                    #  - events found but 0 enriched + row < 24h : retry → FALSE
+                    if total_rows_enriched > 0:
+                        should_mark_synced = True
+                        reason = f"enriched={total_rows_enriched}"
+                    elif total_events_found == 0 and row_age_hours >= 6:
+                        should_mark_synced = True
+                        reason = f"no ShopifyQL events, row age={row_age_hours:.1f}h (set/transfer)"
+                    elif total_events_found == 0 and row_age_hours < 6:
+                        should_mark_synced = False
+                        reason = f"no events yet, row age={row_age_hours:.1f}h < 6h (possible lag)"
+                    elif total_events_found > 0 and total_rows_enriched == 0 and row_age_hours >= 24:
+                        should_mark_synced = True
+                        reason = f"events={total_events_found} but 0 enriched, giving up after {row_age_hours:.1f}h"
+                    else:
+                        should_mark_synced = False
+                        reason = f"events={total_events_found} but 0 enriched, row age={row_age_hours:.1f}h — will retry"
 
                     if should_mark_synced:
                         cur.execute("""
@@ -783,12 +807,10 @@ def process_inventory_queue() -> Dict[str, Any]:
                               AND inventory_item_id = %s AND location_id = %s
                         """, (item_id, loc_id))
                         conn.commit()
-                        print(f"  [Phase B] item={item_id} loc={loc_id}: history_synced=TRUE "
-                              f"(events={total_events_found}, enriched={total_rows_enriched})")
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: history_synced=TRUE ({reason})")
                     else:
                         conn.commit()
-                        print(f"  [Phase B] item={item_id} loc={loc_id}: keeping history_synced=FALSE "
-                              f"(events={total_events_found} found but 0 rows enriched — will retry)")
+                        print(f"  [Phase B] item={item_id} loc={loc_id}: keeping FALSE ({reason})")
 
                 except Exception as exc:
                     if conn is not None:

@@ -13,8 +13,11 @@ from api.lib.process_payout import recuperer_et_enregistrer_versements_jour
 from api.lib.product_processor import update_products_incremental
 from api.lib.location_processor import update_locations_incremental
 from api.lib.process_draft_orders import get_drafts_between_dates, process_draft_orders, process_draft_orders_delete_queue
-from api.lib.process_inventory_sync import sync_inventory_full, process_inventory_queue
-from api.lib.process_customer import sync_customers_since_date
+from api.lib.process_inventory_sync import (
+    sync_inventory_full,
+    process_inventory_queue,
+)
+from api.lib.process_customer import sync_customers_since_date, refresh_customer_billing_addresses
 # Force dynamic execution to prevent caching
 dynamic = 'force-dynamic' #noqa
 
@@ -116,6 +119,22 @@ def process_daily_data(start_date, end_date):
             print(f"⚠️ Erreur lors du traitement des customers: {str(e)}")
             result_customers = {"customers_inserted": 0, "customers_updated": 0, "customers_skipped": 0, "errors": [str(e)]}
 
+        # 6.3 Refresh customers billing_* depuis la commande la plus récente
+        # (dénormalisation des billing_address de orders -> customers, fenêtre = période traitée)
+        print("🧾 Rafraîchissement billing_* (customers ← orders)...")
+        try:
+            billing_refresh_result = refresh_customer_billing_addresses(
+                start_date=start_datetime,
+                end_date=end_datetime,
+            )
+            if billing_refresh_result.get("errors"):
+                print(f"⚠️ billing refresh: {billing_refresh_result['errors'][0]}")
+            else:
+                print(f"🧾 billing refresh: {billing_refresh_result.get('updated', 0)} client(s) mis à jour ({billing_refresh_result.get('scope', 'window')})")
+        except Exception as e:
+            print(f"⚠️ Erreur lors du refresh billing_* customers: {str(e)}")
+            billing_refresh_result = {"success": False, "updated": 0, "scope": "window", "errors": [str(e)]}
+
         # 7. Update products incrementally (nouveaux + modifiés, avec et sans COGS)
         print("🛍️ Mise à jour incrémentale des produits...")
         products_result = update_products_incremental()
@@ -142,7 +161,8 @@ def process_daily_data(start_date, end_date):
             "inventory_synchronized": f"Full sync: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour" if inventory_result else "Pas de full sync (seulement dimanche 2h)",
             "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées",
             "draft_orders_delete_queue_processed": f"Queue delete: {delete_queue_result.get('deleted', 0)} marqués deleted, {delete_queue_result.get('failed', 0)} échecs sur {delete_queue_result.get('total_pending', 0)} pending",
-            "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées"
+            "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées",
+            "customers_billing_refreshed": f"Billing refresh: {billing_refresh_result.get('updated', 0)} client(s) ({billing_refresh_result.get('scope', 'window')})"
         })
         
         return response_data

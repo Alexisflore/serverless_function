@@ -35,9 +35,15 @@ def _shopify_headers() -> Dict[str, str]:
     return HEADERS
 
 def _pg_connect():
-    """Connexion PostgreSQL (utilise DATABASE_URL si présent sinon variables séparées)."""
+    """Connexion PostgreSQL.
+
+    Ordre de résolution :
+      1. SUPABASE_URL  (connection string Postgres directe ; recommandé)
+      2. DATABASE_URL  (fallback historique)
+      3. SUPABASE_USER / PASSWORD / HOST / PORT / DB_NAME (variables séparées)
+    """
     load_dotenv()
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("SUPABASE_URL") or os.getenv("DATABASE_URL")
     if not db_url:
         db_url = "postgresql://{user}:{pw}@{host}:{port}/{db}".format(
             user=os.getenv("SUPABASE_USER"),
@@ -513,6 +519,142 @@ def sync_customers_since_date(dt_since: datetime) -> Dict[str, Any]:
         return {"success": True, "records_processed": len(records), "stats": stats}
     except Exception as e:
         return {"success": False, "error": str(e), "records_processed": 0, "stats": {"errors": [str(e)]}}
+
+# ---------------------------------------------------------------------------
+# Billing addresses refresh (denormalised from `orders` → `customers.billing_*`)
+# ---------------------------------------------------------------------------
+
+_REFRESH_BILLING_SQL = """
+WITH candidates AS (
+    SELECT _id_customer
+    FROM orders
+    WHERE _id_customer IS NOT NULL
+      {window_filter}
+),
+latest_billing AS (
+    SELECT DISTINCT ON (o._id_customer)
+        o._id_customer,
+        o._id_order,
+        o.created_at,
+        o.billing_first_name,
+        o.billing_last_name,
+        o.billing_name,
+        o.billing_company,
+        o.billing_address1,
+        o.billing_address2,
+        o.billing_city,
+        o.billing_province,
+        o.billing_province_code,
+        o.billing_country,
+        o.billing_country_code,
+        o.billing_zip,
+        o.billing_phone,
+        o.billing_latitude,
+        o.billing_longitude
+    FROM orders o
+    WHERE o._id_customer IN (SELECT _id_customer FROM candidates)
+      AND (
+            o.billing_address1 IS NOT NULL
+         OR o.billing_city     IS NOT NULL
+         OR o.billing_country  IS NOT NULL
+         OR o.billing_zip      IS NOT NULL
+         OR o.billing_phone    IS NOT NULL
+      )
+    ORDER BY
+        o._id_customer,
+        o.created_at DESC NULLS LAST,
+        o._id_order  DESC
+)
+UPDATE customers c
+SET
+    billing_first_name         = lb.billing_first_name,
+    billing_last_name          = lb.billing_last_name,
+    billing_name               = lb.billing_name,
+    billing_company            = lb.billing_company,
+    billing_address1           = lb.billing_address1,
+    billing_address2           = lb.billing_address2,
+    billing_city               = lb.billing_city,
+    billing_province           = lb.billing_province,
+    billing_province_code      = lb.billing_province_code,
+    billing_country            = lb.billing_country,
+    billing_country_code       = lb.billing_country_code,
+    billing_zip                = lb.billing_zip,
+    billing_phone              = lb.billing_phone,
+    billing_latitude           = lb.billing_latitude,
+    billing_longitude          = lb.billing_longitude,
+    billing_order_id           = lb._id_order,
+    billing_order_created_at   = lb.created_at,
+    billing_address_updated_at = NOW()
+FROM latest_billing lb
+WHERE c.customer_id = lb._id_customer
+  AND (
+        c.billing_order_id IS DISTINCT FROM lb._id_order
+     OR c.billing_address1 IS DISTINCT FROM lb.billing_address1
+     OR c.billing_zip      IS DISTINCT FROM lb.billing_zip
+     OR c.billing_country  IS DISTINCT FROM lb.billing_country
+     OR c.billing_city     IS DISTINCT FROM lb.billing_city
+  )
+"""
+
+
+def refresh_customer_billing_addresses(
+    start_date: datetime | str | None = None,
+    end_date: datetime | str | None = None,
+) -> Dict[str, Any]:
+    """
+    Denormalise les colonnes `customers.billing_*` à partir de la commande
+    LA PLUS RÉCENTE par client (orders.billing_*, ordonnée par created_at DESC).
+
+    - Si `start_date` / `end_date` sont fournis : ne met à jour que les clients
+      qui ont au moins une commande créée OU mise à jour dans la fenêtre
+      (incrémental quotidien depuis le cron).
+    - Sinon : passe en revue tous les clients ayant des commandes (full refresh).
+
+    Ne touche que les colonnes billing_* + traçabilité, n'écrase pas
+    `default_address_*` ni les autres champs synchronisés depuis Shopify.
+
+    Returns:
+        {"success": bool, "updated": int, "scope": "full"|"window", "errors": [..]}
+    """
+    has_window = start_date is not None and end_date is not None
+    if has_window:
+        window_filter = (
+            "AND ((created_at >= %s AND created_at < %s) "
+            "OR (updated_at_timestamp >= %s AND updated_at_timestamp < %s))"
+        )
+        params = (start_date, end_date, start_date, end_date)
+    else:
+        window_filter = ""
+        params = ()
+
+    sql = _REFRESH_BILLING_SQL.format(window_filter=window_filter)
+
+    conn = None
+    try:
+        conn = _pg_connect()
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        updated = cur.rowcount or 0
+        conn.commit()
+        cur.close()
+        return {
+            "success": True,
+            "updated": updated,
+            "scope": "window" if has_window else "full",
+            "errors": [],
+        }
+    except Exception as exc:
+        if conn is not None:
+            conn.rollback()
+        return {
+            "success": False,
+            "updated": 0,
+            "scope": "window" if has_window else "full",
+            "errors": [str(exc)],
+        }
+    finally:
+        if conn is not None:
+            conn.close()
 
 def sync_customers_last_hours(hours: int = 24) -> Dict[str, Any]:
     since = datetime.now() - timedelta(hours=hours)

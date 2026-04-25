@@ -1,0 +1,106 @@
+DROP VIEW IF EXISTS orders_clean;
+
+CREATE VIEW orders_clean AS
+SELECT
+    o._id_order,
+    o._id_customer,
+    o.order_label,
+    o.app_id,
+    o.confirmed,
+    o.financial_status,
+    o.fulfillment_status,
+    o.location_id,
+    o.contact_email,
+    o.created_at,
+    o.currency,
+    o.origin_total_orders,
+    o.gross_sales,
+    o.returns,
+    o.returns_excl_taxes,
+    o.discount,
+    o.taxes,
+    o.shipping,
+    o.current_total_orders,
+    o.net_sales,
+    o.current_subtotal_price,
+    o.net_sales_check,
+    o.tax1_name,
+    o.tax1_rate,
+    o.tax1_value_origin,
+    o.tax2_name,
+    o.tax2_rate,
+    o.tax2_value_origin,
+    o.tax3_name,
+    o.tax3_rate,
+    o.tax3_value_origin,
+    o.tax4_name,
+    o.tax4_rate,
+    o.tax4_value_origin,
+    o.tax5_name,
+    o.tax5_rate,
+    o.tax5_value_origin,
+    o.tax_check,
+    o.discount_codes,
+    o.customer_locale,
+    o.note,
+    o.tags,
+    o.landing_site,
+    o.referring_site,
+    o.source_name,
+    o.billing_first_name,
+    o.billing_address1,
+    o.billing_phone,
+    o.billing_city,
+    o.billing_zip,
+    o.billing_province,
+    o.billing_country,
+    o.billing_last_name,
+    o.billing_address2,
+    o.billing_company,
+    o.billing_latitude,
+    o.billing_longitude,
+    o.billing_name,
+    o.billing_country_code,
+    o.billing_province_code,
+    o.shipping_first_name,
+    o.shipping_address1,
+    o.shipping_phone,
+    o.shipping_city,
+    o.shipping_zip,
+    o.shipping_province,
+    o.shipping_country,
+    o.shipping_last_name,
+    o.shipping_address2,
+    o.shipping_company,
+    o.shipping_latitude,
+    o.shipping_longitude,
+    o.shipping_name,
+    o.shipping_country_code,
+    o.shipping_province_code,
+    o.shipping_total_weight,
+    o.shipment_status,
+    o.tracking_company,
+    o.tracking_number,
+    o.created_at_timestamp,
+    o.updated_at_timestamp,
+    o.market,
+    o.order_type,
+    TO_CHAR(o.created_at, 'DD-MM-YYYY') AS order_date,
+    CASE
+        WHEN o.order_label = '#15101' THEN '31738513'
+        WHEN o.order_label = '#15330' THEN '60891430983'
+        WHEN o.order_label = '#15343' THEN '60959064135'
+        WHEN o.order_label = '#15671' THEN '31738513'
+        WHEN o.source_name = 'pos' THEN o.location_id::text
+        ELSE o.source_name
+    END AS subchannel_id,
+    CASE
+        WHEN o.tags IS NULL THEN FALSE
+        WHEN o.tags LIKE '%STORE%' THEN TRUE
+        ELSE FALSE
+    END AS is_reattributed_sales_store,
+    COALESCE(o.tags_list, '["NO_TAG"]'::jsonb) AS tags_list
+FROM orders o;
+
+COMMENT ON VIEW orders_clean IS
+    'Vue propre de orders : order_date DD-MM-YYYY, subchannel_id corrige + attribue, is_reattributed_sales_store, tags_list NULL->["NO_TAG"]';
