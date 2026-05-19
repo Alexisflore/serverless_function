@@ -113,11 +113,21 @@ def process_daily_data(start_date, end_date):
         # 6.2 Process customers between the dates
         print("📝 Traitement des customers...")
         try:
-            result_customers = sync_customers_since_date(end_datetime)
-            print(f"📋 Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées")
+            result_customers = sync_customers_since_date(start_datetime)
+            _cust_stats = result_customers.get("stats", {}) or {}
+            print(
+                f"📋 Customers: {_cust_stats.get('inserted', 0)} insérées, "
+                f"{_cust_stats.get('updated', 0)} mises à jour, "
+                f"{_cust_stats.get('skipped', 0)} ignorées "
+                f"({result_customers.get('records_processed', 0)} reçus de Shopify)"
+            )
         except Exception as e:
             print(f"⚠️ Erreur lors du traitement des customers: {str(e)}")
-            result_customers = {"customers_inserted": 0, "customers_updated": 0, "customers_skipped": 0, "errors": [str(e)]}
+            result_customers = {
+                "success": False,
+                "records_processed": 0,
+                "stats": {"inserted": 0, "updated": 0, "skipped": 0, "errors": [str(e)]},
+            }
 
         # 6.3 Refresh customers billing_* depuis la commande la plus récente
         # (dénormalisation des billing_address de orders -> customers, fenêtre = période traitée)
@@ -161,7 +171,12 @@ def process_daily_data(start_date, end_date):
             "inventory_synchronized": f"Full sync: {inventory_result['stats']['inserted']} insérés, {inventory_result['stats']['updated']} mis à jour" if inventory_result else "Pas de full sync (seulement dimanche 2h)",
             "draft_orders_processed": f"Draft orders: {draft_result.get('transactions_inserted', 0)} insérées, {draft_result.get('transactions_updated', 0)} mises à jour, {draft_result.get('transactions_skipped', 0)} ignorées",
             "draft_orders_delete_queue_processed": f"Queue delete: {delete_queue_result.get('deleted', 0)} marqués deleted, {delete_queue_result.get('failed', 0)} échecs sur {delete_queue_result.get('total_pending', 0)} pending",
-            "customers_synchronized": f"Customers: {result_customers.get('customers_inserted', 0)} insérées, {result_customers.get('customers_updated', 0)} mises à jour, {result_customers.get('customers_skipped', 0)} ignorées",
+            "customers_synchronized": (
+                f"Customers: {(result_customers.get('stats') or {}).get('inserted', 0)} insérées, "
+                f"{(result_customers.get('stats') or {}).get('updated', 0)} mises à jour, "
+                f"{(result_customers.get('stats') or {}).get('skipped', 0)} ignorées "
+                f"({result_customers.get('records_processed', 0)} reçus de Shopify)"
+            ),
             "customers_billing_refreshed": f"Billing refresh: {billing_refresh_result.get('updated', 0)} client(s) ({billing_refresh_result.get('scope', 'window')})"
         })
         
