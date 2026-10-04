@@ -68,8 +68,9 @@ def get_latest_product_update_date() -> Optional[str]:
                 COALESCE(MAX(imported_at), '1970-01-01'::timestamp)
             ) as latest_date
             FROM products 
-            WHERE updated_at IS NOT NULL OR imported_at IS NOT NULL
-        """)
+            WHERE commercial_organisation = %s
+              AND (updated_at IS NOT NULL OR imported_at IS NOT NULL)
+        """, (get_store_context()["commercial_organisation"],))
         
         result = cur.fetchone()
         latest_date = result[0] if result else None

@@ -57,6 +57,36 @@ def get_store_context() -> Dict[str, str]:
         "commercial_organisation": os.getenv("COMMERCIAL_ORGANISATION", "US"),
     }
 
+DEFAULT_CURRENCY_BY_ORG = {"US": "USD", "JP": "JPY", "UK": "GBP"}
+
+def get_default_currency() -> str:
+    """
+    Devise de repli de la boutique courante (si Shopify ne renvoie pas de devise).
+    SHOP_CURRENCY prime ; sinon déduite de COMMERCIAL_ORGANISATION ; sinon USD.
+    """
+    override = os.getenv("SHOP_CURRENCY")
+    if override:
+        return override.upper()
+    org = get_store_context()["commercial_organisation"].upper()
+    return DEFAULT_CURRENCY_BY_ORG.get(org, "USD")
+
+def get_current_shop_domain() -> Optional[str]:
+    """
+    Domaine myshopify du store traité par ce process (format du header
+    X-Shopify-Shop-Domain écrit dans la colonne `shop` des queues webhook).
+    """
+    return normalize_shop_domain(os.getenv("SHOPIFY_STORE_DOMAIN"))
+
+
+def normalize_shop_domain(domain: Optional[str]) -> Optional[str]:
+    if not domain:
+        return None
+    domain = domain.strip().lower()
+    for prefix in ("https://", "http://"):
+        if domain.startswith(prefix):
+            domain = domain[len(prefix):]
+    return domain.rstrip("/")
+
 
 if __name__ == "__main__":
     print(get_dates())

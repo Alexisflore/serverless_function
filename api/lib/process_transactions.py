@@ -21,7 +21,7 @@ import logging
 
 # Configuration du logging
 from api.lib.logging_config import get_logger
-from api.lib.utils import get_store_context
+from api.lib.utils import get_store_context, get_default_currency
 logger = get_logger('process_transactions')
 
 
@@ -393,7 +393,7 @@ def calculate_exchange_rate(order: Dict[str, Any]) -> tuple[float, str, str]:
     presentment_money = total_price_set.get("presentment_money", {})  # Devise locale
     
     # Devise de la boutique (toujours USD pour cette boutique)
-    shop_currency = shop_money.get("currency_code", "USD")
+    shop_currency = shop_money.get("currency_code", get_default_currency())
     
     # Devise de présentation (celle vue par le client)
     local_currency = presentment_money.get("currency_code", shop_currency)
@@ -516,9 +516,11 @@ def get_refund_details(
         )
         
         # Utiliser le location_id de la vente si les conditions sont remplies ET si trouvé, sinon celui du refund
-        final_location_id = sale_location_id if (should_use_sale_location and sale_location_id is not None) else 31738513
+        # (US : entrepôt Bergen 31738513 conservé ; autres stores : location du refund, None si absente)
+        fallback_location_id = 31738513 if get_store_context()["commercial_organisation"].upper() == "US" else location_id
+        final_location_id = sale_location_id if (should_use_sale_location and sale_location_id is not None) else fallback_location_id
         refund_quantity = int(refund_item.get("quantity", 1))
-        shop_currency = li.get("price_set", {}).get("shop_money", {}).get("currency_code", "USD")
+        shop_currency = li.get("price_set", {}).get("shop_money", {}).get("currency_code", get_default_currency())
         presentment_currency = li.get("price_set", {}).get("presentment_money", {}).get("currency_code", shop_currency)
 
         exchange_rate = amount_currency / amount_shop_money if amount_shop_money != 0 else 1.0
@@ -623,9 +625,9 @@ def get_refund_details(
             })
         for discount in li.get("discount_allocations", []):
             discount_shop_amount = float(discount.get("amount_set", {}).get("shop_money", {}).get("amount", 0))
-            discount_currency = discount.get("amount_set", {}).get("shop_money", {}).get("currency_code", "USD")
+            discount_currency = discount.get("amount_set", {}).get("shop_money", {}).get("currency_code", get_default_currency())
             discount_presentment_amount = float(discount.get("amount_set", {}).get("presentment_money", {}).get("amount", discount_shop_amount))
-            discount_presentment_currency = discount.get("amount_set", {}).get("presentment_money", {}).get("currency_code", "USD")
+            discount_presentment_currency = discount.get("amount_set", {}).get("presentment_money", {}).get("currency_code", get_default_currency())
 
             exchange_rate = discount_presentment_amount / discount_shop_amount if discount_shop_amount != 0 else 1.0
 

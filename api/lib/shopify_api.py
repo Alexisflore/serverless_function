@@ -1,9 +1,63 @@
 import requests
 import os
 import time
+import re
 import logging
 
+from api.lib.utils import normalize_shop_domain
+
 logger = logging.getLogger(__name__)
+
+SHOP_DOMAIN_RE = re.compile(r"^[a-z0-9][a-z0-9-]*\.myshopify\.com$")
+
+
+def fetch_access_token(store_domain, client_id, client_secret, timeout=30):
+    """
+    Échange client_id/client_secret contre un Admin API access token
+    (client credentials grant — apps créées via Shopify CLI / Dev Dashboard).
+    Le token est de courte durée : à récupérer à chaque exécution.
+    """
+    store_domain = normalize_shop_domain(store_domain)
+    if not store_domain:
+        raise RuntimeError("SHOPIFY_STORE_DOMAIN manquant: échange de token impossible")
+    if not SHOP_DOMAIN_RE.match(store_domain):
+        raise RuntimeError(f"SHOPIFY_STORE_DOMAIN invalide ({store_domain!r}): attendu <shop>.myshopify.com")
+    url = f"https://{store_domain}/admin/oauth/access_token"
+    resp = requests.post(
+        url,
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
+        timeout=timeout,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Shopify token exchange failed for {store_domain}: HTTP {resp.status_code}")
+    token = resp.json().get("access_token")
+    if not token:
+        raise RuntimeError(f"Shopify token exchange failed for {store_domain}: no access_token in response")
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{token}", flush=True)
+    return token
+
+
+def ensure_access_token():
+    """
+    Si SHOPIFY_CLIENT_ID et SHOPIFY_CLIENT_SECRET sont définis, récupère TOUJOURS un token et
+    écrase SHOPIFY_ACCESS_TOKEN (évite d'utiliser le token d'un autre store présent dans .env).
+    À appeler AVANT d'importer les modules qui lisent l'env à l'import
+    (process_customer, process_payout, process_inventory_sync).
+    """
+    client_id = os.environ.get("SHOPIFY_CLIENT_ID")
+    client_secret = os.environ.get("SHOPIFY_CLIENT_SECRET")
+    if not (client_id and client_secret):
+        return False
+    store_domain = normalize_shop_domain(os.environ.get("SHOPIFY_STORE_DOMAIN"))
+    os.environ["SHOPIFY_ACCESS_TOKEN"] = fetch_access_token(store_domain, client_id, client_secret)
+    # Les autres modules construisent leurs URLs depuis l'env : on y remet le domaine normalisé
+    os.environ["SHOPIFY_STORE_DOMAIN"] = store_domain
+    return True
 
 
 def _graphql_request(query, variables=None, timeout=30):

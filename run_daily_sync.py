@@ -4,8 +4,11 @@ Script pour exécuter le traitement quotidien des données depuis GitHub Actions
 """
 import sys
 from datetime import datetime
-from api.lib.utils import get_dates
-from api.process_daily_data import process_daily_data
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from api.lib.shopify_api import ensure_access_token
 
 def main():
     """Execute the daily data processing"""
@@ -14,7 +17,14 @@ def main():
         print("🚀 Démarrage du traitement quotidien des données")
         print(f"⏰ Timestamp: {datetime.now().isoformat()}")
         print("=" * 60)
-        
+
+        # Token runtime (apps Shopify CLI) — doit précéder l'import des processors
+        if ensure_access_token():
+            print("🔑 Access token Shopify obtenu via client credentials")
+
+        from api.lib.utils import get_dates
+        from api.process_daily_data import process_daily_data
+
         # Get date range
         start_date, end_date = get_dates()
         print(f"\n📅 Période analysée: {start_date} à {end_date}\n")

@@ -65,7 +65,8 @@ def get_latest_location_date() -> Optional[str]:
         cur.execute("""
             SELECT MAX(created_at) FROM locations 
             WHERE created_at IS NOT NULL
-        """)
+              AND commercial_organisation = %s
+        """, (get_store_context()["commercial_organisation"],))
         
         result = cur.fetchone()
         latest_date = result[0] if result else None

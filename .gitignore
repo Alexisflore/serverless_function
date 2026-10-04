@@ -13,3 +13,9 @@ api/lib/process_transactions.pyc
 api/__pycache__
 
 *.json
+# Local data dumps (customer PII) and build artefacts
+data/
+*.jsonl
+.DS_Store
+**/__pycache__/
+*.pyc

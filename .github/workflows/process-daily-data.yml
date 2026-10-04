@@ -7,6 +7,10 @@ on:
   # Permet également le déclenchement manuel depuis l'interface GitHub
   workflow_dispatch:
 
+concurrency:
+  group: daily-sync-us
+  cancel-in-progress: false
+
 jobs:
   process-daily-data:
     runs-on: ubuntu-latest

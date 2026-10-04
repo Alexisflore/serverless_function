@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 from api.lib.utils import get_source_location, get_store_context
 
+KNOWN_MARKETS = ['US', 'JP', 'UK']
+
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
 logger = get_logger('insert_order')
@@ -127,31 +129,33 @@ def parse_tags_to_list(tags_str):
 
 def extract_market_from_tags(tags_str):
     """
-    Extrait le market (US ou JP) depuis une chaîne de tags
+    Extrait le market (US, JP ou UK) depuis une chaîne de tags.
+    Sans tag de market, retombe sur le commercial_organisation du store courant.
     
     Args:
         tags_str (str): Chaîne contenant les tags
         
     Returns:
-        str: Market (US, JP) ou None
+        str: Market (US, JP, UK) ou None
     """
     tags_list = parse_tags_to_list(tags_str)
     
     if not tags_list:
         return None
         
+    default_market = get_store_context()["commercial_organisation"]
     try:
-        # Chercher US ou JP dans tous les tags (logique robuste)
+        # Chercher un market connu dans tous les tags (logique robuste)
         for tag in tags_list:
             tag_clean = tag.strip().upper()
-            if tag_clean in ['US', 'JP']:
+            if tag_clean in KNOWN_MARKETS:
                 return tag_clean
         
-        return "US"
+        return default_market
         
     except Exception as e:
         logger.warning(f"Erreur extraction market: {tags_str} - {str(e)}")
-        return "US"
+        return default_market
 
 def is_test_order(tags_str):
     """
@@ -433,7 +437,7 @@ def insert_order(order_data):
                     
                     # Tags et market
                     "tags_list": parse_tags_to_list(order.get('tags', '')),  # tags parsés en array JSON
-                    "market": extract_market_from_tags(order.get('tags', 'US')),  # market extrait des tags
+                    "market": extract_market_from_tags(order.get('tags', '')),  # market extrait des tags
                     "source_location": source_location,  # source_location extrait des tags
 
                     "cancel_status": "CANCELLED" if order.get('cancelled_at') is not None else None,

@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from api.lib.utils import get_store_context
+from api.lib.utils import get_store_context, get_current_shop_domain
 
 # ---------------------------------------------------------------------------
 # 1. Configuration et utilitaires de base
@@ -583,6 +583,11 @@ def process_inventory_queue() -> Dict[str, Any]:
     conn = None
     cur = None
 
+    shop_domain = get_current_shop_domain()
+    if not shop_domain:
+        print("⚠️ SHOPIFY_STORE_DOMAIN non défini: queue inventory_snapshot_queue ignorée (filtre shop impossible).")
+        return stats
+
     try:
         conn = _pg_connect()
         cur = conn.cursor()
@@ -593,10 +598,11 @@ def process_inventory_queue() -> Dict[str, Any]:
         cur.execute("""
             SELECT id, inventory_item_id, location_id, quantities, shopify_updated_at
             FROM inventory_snapshot_queue
-            WHERE status = 'pending'
-               OR (status = 'failed' AND attempts < 6)
+            WHERE shop = %s
+              AND (status = 'pending'
+                   OR (status = 'failed' AND attempts < 6))
             ORDER BY created_at ASC
-        """)
+        """, (shop_domain,))
         pending_rows = cur.fetchall()
         stats["total_pending"] = len(pending_rows)
 
@@ -722,12 +728,13 @@ def process_inventory_queue() -> Dict[str, Any]:
                    inventory_item_id, location_id, location_name, shopify_updated_at,
                    processed_at
             FROM inventory_snapshot_queue
-            WHERE status = 'completed'
+            WHERE shop = %s
+              AND status = 'completed'
               AND (history_synced = FALSE OR history_synced IS NULL)
               AND processed_at < NOW() - INTERVAL '30 minutes'
             ORDER BY inventory_item_id, location_id, created_at ASC
             LIMIT 50
-        """)
+        """, (shop_domain,))
         enrichment_rows = cur.fetchall()
 
         if enrichment_rows:

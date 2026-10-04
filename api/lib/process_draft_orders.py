@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import psycopg2
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
-from api.lib.utils import get_source_location, get_store_context
+from api.lib.utils import get_source_location, get_store_context, get_current_shop_domain, get_default_currency
 
 load_dotenv()
 
@@ -147,7 +147,7 @@ def process_draft_order(draft_order: Dict[str, Any]) -> List[Dict[str, Any]]:
     print(f"  - Draft {draft_id} contient {len(line_items)} line items")
     
     # Currency - from draft order
-    currency = draft_order.get("currency", "USD")
+    currency = draft_order.get("currency", get_default_currency())
     draft_order_name = draft_order.get("name")
     draft_order_note = draft_order.get("note")
     
@@ -459,6 +459,11 @@ def process_draft_orders_delete_queue() -> Dict[str, Any]:
     conn = None
     cur = None
 
+    shop_domain = get_current_shop_domain()
+    if not shop_domain:
+        print("⚠️ SHOPIFY_STORE_DOMAIN non défini: queue draft_orders_delete_queue ignorée (filtre shop impossible).")
+        return stats
+
     try:
         conn = _pg_connect()
         cur = conn.cursor()
@@ -466,10 +471,11 @@ def process_draft_orders_delete_queue() -> Dict[str, Any]:
         cur.execute("""
             SELECT id, draft_order_id
             FROM draft_orders_delete_queue
-            WHERE status = 'pending'
-               OR (status = 'failed' AND attempts < 6)
+            WHERE shop = %s
+              AND (status = 'pending'
+                   OR (status = 'failed' AND attempts < 6))
             ORDER BY created_at ASC
-        """)
+        """, (shop_domain,))
         pending_rows = cur.fetchall()
         stats["total_pending"] = len(pending_rows)
 

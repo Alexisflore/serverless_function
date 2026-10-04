@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 
 # Configuration du logging pour Vercel
 from .logging_config import get_logger
+from .utils import get_default_currency
 logger = get_logger("process_payout")
 
 load_dotenv()
@@ -271,7 +272,7 @@ def obtenir_versements_deposited_format_specifique(
                     "amount": amount,
                     "fee": fee,
                     "net": net,
-                    "currency": tx.get("currency", "USD"),
+                    "currency": tx.get("currency", get_default_currency()),
                     "payment_method_name": tx.get("payment_method_name"),  # <-- NEW
                 }
             )
@@ -282,7 +283,7 @@ def obtenir_versements_deposited_format_specifique(
             "charges_total": charges_total,
             "refunds_total": refunds_total,
             "fees_total": tot_fee,
-            "currency": payout.get("currency", "USD"),
+            "currency": payout.get("currency", get_default_currency()),
         }
 
         all_payouts_fmt.append(
@@ -379,7 +380,7 @@ def recuperer_et_enregistrer_versements_jour(
                         "amount": amount,
                         "fee": fee,
                         "net": net,
-                        "currency": tx.get("currency", "USD"),
+                        "currency": tx.get("currency", get_default_currency()),
                         "payment_method_name": tx.get("payment_method_name"),  # NEW
                     }
                 )
@@ -415,7 +416,7 @@ def recuperer_et_enregistrer_versements_jour(
                     charges_total,
                     refunds_total,
                     tot_fee,
-                    payout.get("currency", "USD"),
+                    payout.get("currency", get_default_currency()),
                     _ctx["data_source"], _ctx["company_code"], _ctx["commercial_organisation"],
                 ),
             )

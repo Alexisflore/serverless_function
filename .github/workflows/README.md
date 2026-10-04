@@ -1,94 +1,56 @@
-# GitHub Actions Cron Job Configuration
+# GitHub Actions — Synchronisation horaire Shopify → Supabase
 
 ## Vue d'ensemble
 
-Le workflow `process-daily-data.yml` déclenche automatiquement la synchronisation des données Shopify toutes les heures.
+Un workflow par store Shopify. Chacun installe les dépendances (Pipenv, Python 3.10) puis exécute `pipenv run python run_daily_sync.py` avec les variables d'environnement du store. Tous les stores écrivent dans la même base Supabase. Les lignes sont distinguées par `commercial_organisation`.
 
-## Configuration requise
+| Workflow | Store | Schedule (UTC) | Concurrency group | Auth Shopify |
+|---|---|---|---|---|
+| `process-daily-data.yml` | US | `'0 * * * *'` (minute 0) | `daily-sync-us` | Token statique `SHOPIFY_ACCESS_TOKEN` |
+| `process-daily-data-jp.yml` | JP | `'20 * * * *'` (minute 20) | `daily-sync-jp` | Token statique `SHOPIFY_ACCESS_TOKEN_JP` |
+| `process-daily-data-uk.yml` | UK | `'40 * * * *'` (minute 40) | `daily-sync-uk` | App Shopify CLI : client ID/secret, token obtenu au runtime (client credentials) |
 
-### Secrets à configurer dans GitHub
+Les minutes sont décalées pour que deux stores ne tournent jamais en même temps. Le `concurrency` group empêche deux exécutions du même store de se chevaucher.
 
-Pour que le workflow fonctionne, vous devez configurer les secrets suivants dans votre repository GitHub :
+## Secrets GitHub
 
-1. **Accéder aux secrets** :
-   - Allez dans `Settings` → `Secrets and variables` → `Actions`
-   - Cliquez sur `New repository secret`
+`Settings` → `Secrets and variables` → `Actions`, ou `push-secrets-to-github.sh` (pousse les clés du `.env`).
 
-2. **Secrets requis** :
+| Secret | Utilisé par |
+|---|---|
+| `SHOPIFY_ACCESS_TOKEN`, `SHOPIFY_STORE_DOMAIN` | US |
+| `SHOPIFY_ACCESS_TOKEN_JP`, `SHOPIFY_STORE_DOMAIN_JP` | JP |
+| `SHOPIFY_STORE_DOMAIN_UK`, `SHOPIFY_CLIENT_ID_UK`, `SHOPIFY_CLIENT_SECRET_UK` | UK |
+| `SHOPIFY_API_VERSION` | Tous |
+| `SUPABASE_URL`, `SUPABASE_TOKEN` (exposé en `SUPABASE_SERVICE_ROLE_KEY`) | Tous |
+| `SUPABASE_USER`, `SUPABASE_PASSWORD`, `SUPABASE_HOST`, `SUPABASE_PORT`, `SUPABASE_DB_NAME` | Tous |
+| `CRON_SECRET` | Tous |
 
-   | Nom du secret | Description | Exemple |
-   |---------------|-------------|---------|
-   | `CRON_SECRET` | Le token d'authentification pour votre API Vercel | `your-secret-token-here` |
-   | `VERCEL_URL` | L'URL complète de votre déploiement Vercel | `https://your-project.vercel.app` |
+Le suffixe de store est sur le nom du secret GitHub. Le workflow le mappe vers le nom générique (`SHOPIFY_STORE_DOMAIN`, etc.) attendu par le code.
 
-### Récupérer CRON_SECRET
+## Ajouter un store
 
-Le `CRON_SECRET` doit correspondre à la variable d'environnement définie dans votre projet Vercel :
-
-1. Allez dans votre projet Vercel
-2. `Settings` → `Environment Variables`
-3. Trouvez la variable `CRON_SECRET`
-4. Copiez sa valeur
-
-### Récupérer VERCEL_URL
-
-1. Allez dans votre projet Vercel
-2. Dans le Dashboard, copiez l'URL de production (ex: `https://cron-functions.vercel.app`)
-3. ⚠️ **Important** : N'incluez PAS de slash final `/` dans l'URL
-
-## Schedule du Cron
-
-```yaml
-'0 * * * *'  # Toutes les heures à la minute 0
-```
-
-### Autres exemples de schedule :
-
-```yaml
-'*/30 * * * *'   # Toutes les 30 minutes
-'0 */2 * * *'    # Toutes les 2 heures
-'0 9 * * *'      # Tous les jours à 9h00 UTC
-'0 */4 * * *'    # Toutes les 4 heures
-```
+1. Insérer la ligne dans `commercial_organization` (ex. `database_creation/add_uk_commercial_organization.sql`).
+2. Créer l'app Shopify (`npm init @shopify/app@latest`), déclarer les scopes, installer l'app sur le store.
+3. Ajouter les secrets `SHOPIFY_STORE_DOMAIN_<ORG>` et `SHOPIFY_CLIENT_ID_<ORG>` / `SHOPIFY_CLIENT_SECRET_<ORG>` (ou `SHOPIFY_ACCESS_TOKEN_<ORG>`).
+4. Copier `process-daily-data-uk.yml`, changer les secrets, `COMMERCIAL_ORGANISATION`, le group de concurrency et la minute du cron.
+5. Backfill de l'historique : `pipenv run python backfill_store_data.py --org <ORG>`, puis `check_store_backfill_status.py --org <ORG>`.
 
 ## Déclenchement manuel
 
-Vous pouvez également déclencher le workflow manuellement :
+`Actions` → choisir le workflow du store → `Run workflow` (ou `gh workflow run process-daily-data-uk.yml`).
 
-1. Allez dans l'onglet `Actions` de votre repository
-2. Sélectionnez le workflow "Process Daily Data - Hourly Sync"
-3. Cliquez sur `Run workflow`
+## Points d'attention
 
-## Surveillance
+- La synchro inventaire complète tourne quand l'heure du runner (UTC) vaut dimanche 02h. Elle tourne donc une fois par store, aux minutes décalées.
+- Les queues webhook (`inventory_snapshot_queue`, `draft_orders_delete_queue`) sont filtrées par `shop` = `SHOPIFY_STORE_DOMAIN` du job.
 
-### Vérifier l'exécution
+## En cas d'échec
 
-1. Allez dans l'onglet `Actions` de votre repository
-2. Vous verrez l'historique de toutes les exécutions
-3. Cliquez sur une exécution pour voir les logs détaillés
+- Vérifier les logs dans l'onglet `Actions` (`gh run view <id> --log-failed`).
+- Vérifier les secrets du store concerné.
+- Store UK : si l'échange de token échoue (HTTP 4xx), vérifier que l'app est installée sur le store et que le client ID/secret correspondent.
 
-### En cas d'échec
+## Désactiver un cron
 
-Si le workflow échoue :
-- Vérifiez que les secrets sont correctement configurés
-- Vérifiez les logs dans l'onglet Actions
-- Vérifiez que votre fonction Vercel est bien déployée et accessible
-- Vérifiez les logs de votre fonction Vercel
-
-## Désactiver le cron
-
-Pour désactiver temporairement le cron sans supprimer le workflow :
-
-1. Commentez la section `schedule` dans le fichier `process-daily-data.yml`
-2. Commitez et poussez les changements
-
-Ou directement depuis l'interface GitHub :
-1. `Actions` → `Workflows` → "Process Daily Data - Hourly Sync"
-2. Cliquez sur les trois points `...`
-3. Sélectionnez `Disable workflow`
-
-## Notifications
-
-Par défaut, GitHub vous envoie un email si un workflow échoue. Vous pouvez configurer ces notifications dans :
-- `Settings` → `Notifications` → `Actions`
-
+`Actions` → `Workflows` → choisir le workflow → `...` → `Disable workflow`.
