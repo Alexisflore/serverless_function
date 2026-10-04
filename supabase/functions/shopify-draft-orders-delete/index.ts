@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 /**
  * Shopify draft_orders/delete webhook.
@@ -100,7 +99,7 @@ const CLIENT_CREDENTIAL_KEYS = new Map<string, Promise<CryptoKey>>(
   ]),
 );
 
-function b64ToBytes(b64: string): Uint8Array {
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   let bin: string;
   try {
     bin = atob(b64);
@@ -112,7 +111,7 @@ function b64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-async function verifyHmac(rawBytes: Uint8Array, receivedB64: string): Promise<number | null> {
+async function verifyHmac(rawBytes: Uint8Array<ArrayBuffer>, receivedB64: string): Promise<number | null> {
   const keys = await cryptoKeysPromise;
   if (keys.length === 0) return null;
 
@@ -129,7 +128,7 @@ async function verifyHmac(rawBytes: Uint8Array, receivedB64: string): Promise<nu
 /** Verify HMAC against the secret of ONE client-credentials shop (not the shared secrets). */
 async function verifyHmacForShop(
   shop: string,
-  rawBytes: Uint8Array,
+  rawBytes: Uint8Array<ArrayBuffer>,
   receivedB64: string,
 ): Promise<boolean> {
   const key = await CLIENT_CREDENTIAL_KEYS.get(shop);
@@ -137,7 +136,7 @@ async function verifyHmacForShop(
   return crypto.subtle.verify("HMAC", key, b64ToBytes(receivedB64), rawBytes);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
   const headers = req.headers;

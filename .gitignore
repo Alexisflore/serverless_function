@@ -22,3 +22,4 @@ data/
 supabase/.temp/
 .codex/
 supabase/.env
+!supabase/functions/*/deno.json

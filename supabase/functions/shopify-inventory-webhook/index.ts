@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 /**
  * Shopify inventory webhook (optimized for speed):
@@ -153,7 +152,7 @@ const INVENTORY_LEVEL_QUERY =
 // ── Helpers ──
 
 /** Decode base64 to Uint8Array (for the received HMAC header). */
-function b64ToBytes(b64: string): Uint8Array {
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   let bin: string;
   try {
     bin = atob(b64);
@@ -172,7 +171,7 @@ function b64ToBytes(b64: string): Uint8Array {
  * Returns the index of the matching key, or null.
  */
 async function verifyHmac(
-  rawBytes: Uint8Array,
+  rawBytes: Uint8Array<ArrayBuffer>,
   receivedB64: string,
 ): Promise<number | null> {
   const keys = await cryptoKeysPromise;
@@ -192,7 +191,7 @@ async function verifyHmac(
 /** Verify HMAC against the secret of ONE client-credentials shop (not the shared secrets). */
 async function verifyHmacForShop(
   shop: string,
-  rawBytes: Uint8Array,
+  rawBytes: Uint8Array<ArrayBuffer>,
   receivedB64: string,
 ): Promise<boolean> {
   const key = await CLIENT_CREDENTIAL_KEYS.get(shop);
@@ -362,7 +361,7 @@ function normalizeQuantities(invLevel: any): Record<string, number> {
 
 // ── Main handler ──
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Cheapest check first
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
