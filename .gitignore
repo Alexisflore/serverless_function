@@ -19,3 +19,6 @@ data/
 .DS_Store
 **/__pycache__/
 *.pyc
+supabase/.temp/
+.codex/
+supabase/.env
