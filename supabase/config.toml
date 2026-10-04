@@ -1,0 +1,9 @@
+# Supabase project nybxcfjjnkgxzgaeitlk — edge functions receiving Shopify webhooks.
+# Shopify cannot send a Supabase JWT: verify_jwt must stay false (HMAC is verified in code).
+project_id = "cron_functions"
+
+[functions.shopify-inventory-webhook]
+verify_jwt = false
+
+[functions.shopify-draft-orders-delete]
+verify_jwt = false
