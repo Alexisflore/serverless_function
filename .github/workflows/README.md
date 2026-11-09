@@ -6,11 +6,11 @@ Un workflow par store Shopify. Chacun installe les dépendances (Pipenv, Python 
 
 | Workflow | Store | Schedule (UTC) | Concurrency group | Auth Shopify |
 |---|---|---|---|---|
-| `process-daily-data.yml` | US | `'0 * * * *'` (minute 0) | `daily-sync-us` | Token statique `SHOPIFY_ACCESS_TOKEN` |
-| `process-daily-data-jp.yml` | JP | `'20 * * * *'` (minute 20) | `daily-sync-jp` | Token statique `SHOPIFY_ACCESS_TOKEN_JP` |
-| `process-daily-data-uk.yml` | UK | `'40 * * * *'` (minute 40) | `daily-sync-uk` | App Shopify CLI : client ID/secret, token obtenu au runtime (client credentials) |
+| `process-daily-data.yml` | US | `'17 * * * *'` (minute 17) | `daily-sync-us` | Token statique `SHOPIFY_ACCESS_TOKEN` |
+| `process-daily-data-jp.yml` | JP | `'37 * * * *'` (minute 37) | `daily-sync-jp` | Token statique `SHOPIFY_ACCESS_TOKEN_JP` |
+| `process-daily-data-uk.yml` | UK | `'52 * * * *'` (minute 52) | `daily-sync-uk` | App Shopify CLI : client ID/secret, token obtenu au runtime (client credentials) |
 
-Les minutes sont décalées pour que deux stores ne tournent jamais en même temps. Le `concurrency` group empêche deux exécutions du même store de se chevaucher.
+Les minutes sont décalées pour que deux stores ne tournent jamais en même temps, et évitent les heures pile (:00), où GitHub retarde ou saute le plus les crons. Le `concurrency` group empêche deux exécutions du même store de se chevaucher.
 
 ## Secrets GitHub
 

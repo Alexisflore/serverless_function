@@ -2,8 +2,8 @@ name: Process Daily Data JP - Hourly Sync
 
 on:
   schedule:
-    # Minute 20 : décalé de US (0) et UK (40) pour éviter les exécutions simultanées
-    - cron: '20 * * * *'
+    # Minute 37 : hors des heures pile, décalé de US (17) et UK (52) pour éviter les exécutions simultanées
+    - cron: '37 * * * *'
   workflow_dispatch:
 
 concurrency:

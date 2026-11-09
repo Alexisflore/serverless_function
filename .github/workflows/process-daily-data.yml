@@ -2,8 +2,8 @@ name: Process Daily Data - Hourly Sync
 
 on:
   schedule:
-    # Exécute toutes les heures à la minute 0
-    - cron: '0 * * * *'
+    # Minute 17 : hors des heures pile (pic de charge GitHub), décalé de JP (37) et UK (52)
+    - cron: '17 * * * *'
   # Permet également le déclenchement manuel depuis l'interface GitHub
   workflow_dispatch:
 
